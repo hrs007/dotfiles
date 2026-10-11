@@ -102,3 +102,58 @@ map("n", "<C-k>", "<C-w>k", {
 map("n", "<C-l>", "<C-w>l", {
     desc = "Move to right window",
 })
+
+
+-- Set up keymaps when an LSP attaches to a buffer.
+vim.api.nvim_create_autocmd("LspAttach", {
+    callback = function(event)
+        -- Only apply these mappings to the current buffer.
+        local opts = { buffer = event.buf, silent = true }
+
+        -- Go to the definition of a symbol.
+        vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+
+        -- Find references to a symbol.
+        vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
+
+        -- Show documentation and type information.
+        vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+
+        -- Rename a symbol.
+        vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
+
+        -- Show available code actions.
+        vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
+
+        -- Jump to the previous diagnostic.
+        vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, opts)
+
+        -- Jump to the next diagnostic.
+        vim.keymap.set("n", "]d", vim.diagnostic.goto_next, opts)
+
+        -- Display the diagnostic under the cursor.
+        vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float, opts)
+    end,
+})
+
+-- Terminal integration
+
+-- Open a terminal in a horizontal split
+vim.keymap.set("n", "<leader>th", function()
+    vim.cmd("botright 12split | terminal")
+end, { desc = "Terminal: Horizontal" })
+
+-- Open a terminal in a vertical split
+vim.keymap.set("n", "<leader>tv", function()
+    vim.cmd("botright vsplit | terminal")
+end, { desc = "Terminal: Vertical" })
+
+-- Open a terminal in a full window
+vim.keymap.set("n", "<leader>tt", function()
+    vim.cmd("terminal")
+end, { desc = "Terminal: Full window" })
+
+ -- Leave terminal mode with Escape twice
+vim.keymap.set("t", "<Esc><Esc>", [[<C-\><C-n>]], {
+    desc = "Terminal: Exit terminal mode",
+})

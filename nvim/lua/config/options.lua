@@ -60,7 +60,7 @@ opt.showcmd = true
 
 -- Display the current editing mode when applicable,
 -- such as -- INSERT -- or -- VISUAL --.
-opt.showmode = true
+opt.showmode = false
 
 
 -- ==========================================
