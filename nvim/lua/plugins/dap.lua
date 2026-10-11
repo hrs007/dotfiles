@@ -19,10 +19,16 @@ return {
             local dap = require("dap")
             local dapui = require("dapui")
 
-            -- Configure the debugging interface.
+            local map = vim.keymap.set
+            local is_windows = vim.fn.has("win32") == 1
+            local mason = vim.fn.stdpath("data") .. "/mason"
+
+            -- ==========================================
+            -- Debug UI
+            -- ==========================================
+
             dapui.setup()
 
-            -- Show variable values inline.
             require("nvim-dap-virtual-text").setup()
 
             -- Open the UI when debugging starts.
@@ -42,15 +48,49 @@ return {
                     dapui.close()
                 end
 
-            -- Python debugger: debugpy installed through Mason.
-            local debugpy = vim.fn.stdpath("data")
-                .. "/mason/packages/debugpy/venv/bin/python"
+            -- ==========================================
+            -- Python Debugging: debugpy
+            -- ==========================================
+
+            local debugpy = mason
+                .. "/packages/debugpy/venv/"
+                .. (is_windows
+                    and "Scripts/python.exe"
+                    or "bin/python")
 
             require("dap-python").setup(debugpy)
 
-            -- C/C++ debugger: CodeLLDB installed through Mason.
-            local codelldb = vim.fn.stdpath("data")
-                .. "/mason/bin/codelldb"
+            if vim.fn.executable(debugpy) ~= 1 then
+                vim.notify(
+                    "debugpy Python executable not found:\n"
+                        .. debugpy
+                        .. "\nInstall debugpy through :Mason.",
+                    vim.log.levels.WARN
+                )
+            end
+
+            -- ==========================================
+            -- C/C++ Debugging: CodeLLDB
+            -- ==========================================
+
+            -- Prefer Mason's executable path when available.
+            local codelldb = vim.fn.exepath("codelldb")
+
+            -- Fall back to Mason's bin directory.
+            if codelldb == "" then
+                codelldb = mason
+                    .. "/bin/codelldb"
+                    .. (is_windows and ".cmd" or "")
+            end
+
+            if vim.fn.executable(codelldb) ~= 1 then
+                vim.notify(
+                    "CodeLLDB executable not found:\n"
+                        .. codelldb
+                        .. "\nInstall codelldb through :Mason.",
+                    vim.log.levels.WARN
+                )
+            end
 
             dap.adapters.codelldb = {
                 type = "server",
@@ -65,7 +105,10 @@ return {
                 },
             }
 
-            -- Configuration shared by C and C++.
+            -- ==========================================
+            -- C/C++ Launch Configuration
+            -- ==========================================
+
             local cpp_config = {
                 {
                     name = "Launch C/C++ executable",
@@ -73,9 +116,12 @@ return {
                     request = "launch",
 
                     program = function()
+                        local default_path = vim.fn.getcwd()
+                            .. (is_windows and "\\" or "/")
+
                         return vim.fn.input(
                             "Executable path: ",
-                            vim.fn.getcwd() .. "/",
+                            default_path,
                             "file"
                         )
                     end,
@@ -89,16 +135,18 @@ return {
             dap.configurations.c = cpp_config
             dap.configurations.cpp = cpp_config
 
-            -- Debugging keymaps.
-            local map = vim.keymap.set
+            -- ==========================================
+            -- Debugging Keymaps
+            -- ==========================================
 
+            -- Start or continue debugging.
+            -- Save all modified buffers first.
             map("n", "<leader>Dc", function()
-                -- Save all modified buffers before debugging
                 vim.cmd("wall")
-
-                -- Start or continue debugging
                 dap.continue()
-            end, { desc = "Debug: Start or continue" })
+            end, {
+                desc = "Debug: Start or continue",
+            })
 
             map("n", "<leader>Dn", dap.step_over, {
                 desc = "Debug: Step over",

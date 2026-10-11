@@ -4,7 +4,7 @@ return {
         "nvim-telescope/telescope.nvim",
 
         -- Pin the version for a predictable setup.
-        tag = "0.1.8",
+       -- tag = "0.1.8",
 
         -- Utility library required by Telescope.
         dependencies = {

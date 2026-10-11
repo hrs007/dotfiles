@@ -261,3 +261,19 @@ opt.termguicolors = true
 -- It is intentionally not enabled here because it can
 -- write files while you are still editing.
 -- We can add a deliberate autosave mechanism later if needed.
+--
+--
+-- -- ==========================================
+-- Code Folding
+-- ==========================================
+
+-- Use Tree-sitter to determine fold boundaries.
+vim.opt.foldmethod = "expr"
+vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+
+-- Keep folds open when a file is first opened.
+vim.opt.foldlevel = 99
+vim.opt.foldlevelstart = 99
+
+-- Enable folding.
+vim.opt.foldenable = true

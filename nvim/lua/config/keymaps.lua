@@ -157,3 +157,44 @@ end, { desc = "Terminal: Full window" })
 vim.keymap.set("t", "<Esc><Esc>", [[<C-\><C-n>]], {
     desc = "Terminal: Exit terminal mode",
 })
+
+-- ==========================================
+-- Workspace Symbols
+-- ==========================================
+
+-- Search for classes, functions, methods, and other symbols
+-- across the workspace using Telescope and the attached LSP.
+map("n", "<leader>fw", function()
+    require("telescope.builtin").lsp_dynamic_workspace_symbols()
+end, {
+    desc = "Find workspace symbols",
+})
+
+
+-- ==========================================
+-- Diagnostics Lists
+-- ==========================================
+
+-- Show diagnostics across all buffers in the quickfix list.
+map("n", "<leader>xx", function()
+    local diagnostics = vim.diagnostic.get()
+    local items = vim.diagnostic.toqflist(diagnostics)
+
+    vim.fn.setqflist({}, " ", {
+        title = "Workspace Diagnostics",
+        items = items,
+    })
+
+    vim.cmd("copen")
+end, {
+    desc = "Diagnostics: Workspace",
+})
+
+-- Show diagnostics for the current buffer in the location list.
+map("n", "<leader>xd", function()
+    vim.diagnostic.setloclist({
+        open = true,
+    })
+end, {
+    desc = "Diagnostics: Current file",
+})

@@ -13,12 +13,12 @@ vim.diagnostic.config({
     -- Underline problematic code.
     underline = true,
 
-    -- Show diagnostics in the editor.
-    virtual_text = {
-        spacing = 2,
-        prefix = "●",
-        source = "if_many",
-    },
+    -- show diagnostics in the editor.
+--    virtual_text = {
+--        spacing = 2,
+--        prefix = "●",
+--        source = "if_many",
+--    },
 
     -- Show diagnostic information when the cursor stops moving.
     update_in_insert = false,
