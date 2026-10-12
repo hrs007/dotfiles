@@ -10,38 +10,21 @@ vim.diagnostic.config({
         },
     },
 
-    -- Underline problematic code.
+    -- Keep errors visible in the sign column and underlines without
+    -- adding inline text to every affected line.
     underline = true,
+    virtual_text = false,
 
-    -- show diagnostics in the editor.
---    virtual_text = {
---        spacing = 2,
---        prefix = "●",
---        source = "if_many",
---    },
-
-    -- Show diagnostic information when the cursor stops moving.
+    -- Update diagnostics after leaving Insert mode.
     update_in_insert = false,
 
     -- Sort errors before warnings, then other diagnostics.
     severity_sort = true,
 
-    -- Configure floating diagnostic windows.
     float = {
         border = "rounded",
         source = true,
         header = "Diagnostics",
         prefix = "",
     },
-})
-
--- Automatically show diagnostic details when the cursor stops.
-vim.api.nvim_create_autocmd("CursorHold", {
-    callback = function()
-        vim.diagnostic.open_float(nil, {
-            focus = false,
-            scope = "cursor",
-            border = "rounded",
-        })
-    end,
 })

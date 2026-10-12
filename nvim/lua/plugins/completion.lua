@@ -20,6 +20,19 @@ return {
             require("luasnip.loaders.from_vscode").lazy_load()
 
             cmp.setup({
+                window = {
+                    completion = {
+                        border = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
+                        winhighlight = "Normal:Normal,FloatBorder:FloatBorder,CursorLine:Visual,Search:None",
+                        scrollbar = false,
+                        max_width = 60,
+                    },
+                    documentation = {
+                        border = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
+                        max_width = 60,
+                    },
+                },
+
                 -- Tell Neovim how to expand snippets.
                 snippet = {
                     expand = function(args)
@@ -28,7 +41,18 @@ return {
                 },
 
                 completion = {
-                    completeopt = "menu,menuone,noinsert",
+                    completeopt = "menu,menuone,noselect",
+                },
+                preselect = cmp.PreselectMode.None,
+
+                formatting = {
+                    format = function(entry, item)
+                        if entry.source.name == "copilot" then
+                            item.kind = "Copilot"
+                            item.menu = "[AI]"
+                        end
+                        return item
+                    end,
                 },
 
                 -- Keyboard controls.
@@ -42,9 +66,13 @@ return {
                     ["<C-Space>"] = cmp.mapping.complete(),
                     ["<C-e>"] = cmp.mapping.abort(),
 
-                    ["<CR>"] = cmp.mapping.confirm({
-                        select = false,
-                    }),
+                    ["<CR>"] = cmp.mapping(function(fallback)
+                        if cmp.visible() and cmp.get_selected_entry() then
+                            cmp.confirm({ select = false })
+                        else
+                            fallback()
+                        end
+                    end, { "i", "s" }),
 
                     ["<Tab>"] = cmp.mapping(function(fallback)
                         if cmp.visible() then
@@ -69,6 +97,7 @@ return {
 
                 -- Where suggestions come from.
                 sources = cmp.config.sources({
+                    { name = "copilot", priority = 100 },
                     { name = "nvim_lsp" },
                     { name = "luasnip" },
                     { name = "path" },

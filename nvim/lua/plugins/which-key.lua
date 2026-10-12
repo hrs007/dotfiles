@@ -14,11 +14,15 @@ return {
 
             spec = {
                 { "<leader>f", group = "Find" },
-                { "<leader>h", group = "Git" },
+                { "<leader>g", group = "Git" },
+                { "<leader>h", group = "Git hunks" },
                 { "<leader>d", group = "Diagnostics" },
-                { "<leader>l", group = "LSP" },
                 { "<leader>c", group = "Code" },
                 { "<leader>D", group = "Debug" },
+                { "<leader>x", group = "Trouble" },
+                { "<leader>b", group = "Buffers" },
+                { "<leader>t", group = "Terminal" },
+                { "<leader>a", group = "AI" },
             },
 
             win = {

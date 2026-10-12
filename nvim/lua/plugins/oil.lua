@@ -17,24 +17,15 @@ return {
                 show_hidden = true,
             },
 
-            -- Columns displayed in the directory buffer.
-            columns = {
-                "icon",
-                "size",
-            },
-
-            -- Use a vertical split when opening files from Oil.
+            columns = { "icon" },
             win_options = {
                 wrap = false,
-                signcolumn = "yes:2",
+                signcolumn = "no",
             },
-
-            -- Skip confirmation when deleting files permanently.
-            -- Keep this enabled for safety.
             delete_to_trash = true,
-             keymaps = {
-        ["q"] = "actions.close",
-    },
+            keymaps = {
+                ["q"] = "actions.close",
+            },
         },
 
         config = function(_, opts)

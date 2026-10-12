@@ -1,63 +1,61 @@
 return {
     {
         "nvim-lualine/lualine.nvim",
-
         dependencies = {
             "nvim-tree/nvim-web-devicons",
         },
-
         event = "VeryLazy",
+        opts = function()
+            local function copilot_active()
+                local client = package.loaded["copilot.client"]
+                return client ~= nil
+                    and not client.is_disabled()
+                    and client.buf_is_attached(vim.api.nvim_get_current_buf())
+            end
 
-        opts = {
-            options = {
-                theme = "auto",
-                globalstatus = true,
-                component_separators = {
-                    left = "│",
-                    right = "│",
+            return {
+                refresh = {
+                    statusline = 1000,
                 },
-                section_separators = {
-                    left = "",
-                    right = "",
-                },
-                disabled_filetypes = {
-                    statusline = {
-                        "oil",
+                options = {
+                    theme = "auto",
+                    globalstatus = true,
+                    component_separators = { left = "│", right = "│" },
+                    section_separators = { left = "", right = "" },
+                    disabled_filetypes = {
+                        statusline = { "oil" },
                     },
                 },
-            },
-
-            sections = {
-                lualine_a = {
-                    "mode",
-                },
-
-                lualine_b = {
-                    "branch",
-                    "diff",
-                    "diagnostics",
-                },
-
-                lualine_c = {
-                    {
-                        "filename",
-                        path = 1,
+                sections = {
+                    lualine_a = { "mode" },
+                    lualine_b = { "branch" },
+                    lualine_c = {
+                        {
+                            "filename",
+                            path = 0,
+                            symbols = { modified = " ●", readonly = " RO" },
+                        },
+                        "diagnostics",
                     },
+                    lualine_x = {
+                        {
+                            function()
+                                return ""
+                            end,
+                            color = function()
+                                return {
+                                    fg = copilot_active() and "#a6e3a1" or "#6c7086",
+                                }
+                            end,
+                            separator = "",
+                            padding = { left = 1, right = 1 },
+                        },
+                        "filetype",
+                    },
+                    lualine_y = { "progress" },
+                    lualine_z = { "location" },
                 },
-
-                lualine_x = {
-                    "encoding",
-                    "filetype",
-                },
-
-                lualine_y = {
-                    "progress",
-                },
-
-                lualine_z = {
-                    "location",
-                },
-            },
-        },
+            }
+        end,
     },
 }

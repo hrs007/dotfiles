@@ -16,7 +16,26 @@ return {
             local builtin = require("telescope.builtin")
 
             -- Initialize Telescope.
-            telescope.setup({})
+            telescope.setup({
+                defaults = {
+                    layout_strategy = "flex",
+                    layout_config = {
+                        horizontal = {
+                            prompt_position = "top",
+                            preview_width = 0.55,
+                        },
+                        vertical = {
+                            mirror = true,
+                            preview_height = 0.4,
+                        },
+                        width = 0.86,
+                        height = 0.80,
+                    },
+                    sorting_strategy = "ascending",
+                    border = true,
+                    borderchars = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
+                },
+            })
 
             -- Find files in the current working directory.
             vim.keymap.set("n", "<leader>ff", builtin.find_files, {
