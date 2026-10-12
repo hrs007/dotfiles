@@ -15,7 +15,9 @@ return {
             format_on_save = function(bufnr)
                 return {
                     timeout_ms = 5000,
-                    lsp_format = "never",
+                    -- XAML uses LemMinX's XML formatter; other files use
+                    -- their configured external formatter only.
+                    lsp_format = vim.bo[bufnr].filetype == "xml" and "fallback" or "never",
                 }
             end,
         },

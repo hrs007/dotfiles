@@ -2,6 +2,13 @@ local opt = vim.opt
 
 vim.cmd("filetype plugin indent on")
 
+-- Treat WPF XAML as XML for syntax, LSP, and formatting support.
+vim.filetype.add({
+    extension = {
+        xaml = "xml",
+    },
+})
+
 -- Editing
 opt.number = true
 opt.relativenumber = true

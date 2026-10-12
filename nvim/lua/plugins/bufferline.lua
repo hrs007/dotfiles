@@ -29,8 +29,8 @@ return {
         keys = {
             { "<S-l>", "<Cmd>BufferLineCycleNext<CR>", desc = "Buffer: Next" },
             { "<S-h>", "<Cmd>BufferLineCyclePrev<CR>", desc = "Buffer: Previous" },
-            { "<leader>bp", "<Cmd>BufferLinePick<CR>", desc = "Buffer: Pick" },
-            { "<leader>bd", "<Cmd>bdelete<CR>", desc = "Buffer: Close" },
+            { "<leader>vp", "<Cmd>BufferLinePick<CR>", desc = "Buffer: Pick" },
+            { "<leader>vd", "<Cmd>bdelete<CR>", desc = "Buffer: Close" },
         },
     },
 }

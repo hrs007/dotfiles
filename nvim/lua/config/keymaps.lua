@@ -113,6 +113,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
         -- Go to the definition of a symbol.
         vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
 
+        -- Go to implementations, useful for interface and abstract members.
+        vim.keymap.set("n", "gI", vim.lsp.buf.implementation, opts)
+
         -- Find references to a symbol.
         vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
 
@@ -120,7 +123,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
         vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
 
         -- Rename a symbol.
-        vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
+        vim.keymap.set("n", "<leader>cr", vim.lsp.buf.rename, opts)
 
         -- Show available code actions.
         vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
@@ -153,9 +156,23 @@ vim.keymap.set("n", "<leader>tt", function()
     vim.cmd("terminal")
 end, { desc = "Terminal: Full window" })
 
- -- Leave terminal mode with Escape twice
-vim.keymap.set("t", "<Esc><Esc>", [[<C-\><C-n>]], {
-    desc = "Terminal: Exit terminal mode",
+-- Stop the terminal job, remove its buffer, and close its split.
+local function close_terminal()
+    local win = vim.api.nvim_get_current_win()
+    local buf = vim.api.nvim_get_current_buf()
+    vim.cmd("stopinsert")
+    vim.api.nvim_buf_delete(buf, { force = true })
+    if vim.api.nvim_win_is_valid(win) and #vim.api.nvim_list_wins() > 1 then
+        vim.api.nvim_win_close(win, true)
+    end
+end
+
+vim.keymap.set("t", "<Esc><Esc>", close_terminal, {
+    desc = "Terminal: Close",
+    nowait = true,
+})
+vim.keymap.set("t", "<C-q>", close_terminal, {
+    desc = "Terminal: Close",
 })
 
 -- ==========================================
@@ -169,41 +186,3 @@ map("n", "<leader>fw", function()
 end, {
     desc = "Find workspace symbols",
 })
-
-if vim.fn.has("win32") == 1 then
-    vim.keymap.set("n", "<leader>wb", function()
-        local solution = vim.fn.getcwd() .. "\\Equi.CCG.sln"
-        local msbuild = [[C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe]]
-
-        if vim.fn.filereadable(msbuild) == 0 then
-            vim.notify("MSBuild.exe not found. Check its path.", vim.log.levels.ERROR)
-            return
-        end
-
-        vim.cmd("botright 12split")
-        vim.fn.termopen({
-            msbuild,
-            solution,
-            "/t:Build",
-            "/p:Configuration=Release",
-            "/p:Platform=x64",
-        })
-        vim.cmd("startinsert")
-    end, { desc = "Build WPF solution (Release x64)" })
-end
-
-vim.keymap.set("n", "<leader>wr", function()
-    local exe = vim.fn.getcwd() .. "\\bin\\x64\\Release\\Equi.CCG.exe"
-
-    if vim.fn.filereadable(exe) == 0 then
-        vim.notify(
-            "Executable not found. Check your output path.",
-            vim.log.levels.ERROR
-        )
-        return
-    end
-
-    vim.cmd("botright 12split")
-    vim.fn.termopen({ "powershell.exe", "-NoExit", "-Command", "& '" .. exe .. "'" })
-    vim.cmd("startinsert")
-end, { desc = "Run WPF application" })

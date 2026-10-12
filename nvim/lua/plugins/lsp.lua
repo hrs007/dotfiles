@@ -31,6 +31,7 @@ return {
                 "jsonls",       -- JSON
                 "yamlls",       -- YAML
                 "lua_ls",       -- Lua
+                "lemminx",      -- XML and XAML
             },
 
             -- Automatically enable installed servers.
