@@ -3,9 +3,6 @@ return {
         -- Fuzzy finder for files, text, buffers, and more.
         "nvim-telescope/telescope.nvim",
 
-        -- Pin the version for a predictable setup.
-       -- tag = "0.1.8",
-
         -- Utility library required by Telescope.
         dependencies = {
             "nvim-lua/plenary.nvim",
@@ -31,10 +28,39 @@ return {
                         width = 0.86,
                         height = 0.80,
                     },
+                    filesize_limit = 0.5, -- Skip previews of files larger than 0.5 MB.
                     sorting_strategy = "ascending",
                     border = true,
-                    borderchars = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
+                    borderchars = {
+                        "─", "│", "─", "│",
+                        "╭", "╮", "╯", "╰",
+                    },
                 },
+
+pickers = {
+    find_files = {
+        hidden = false,
+        no_ignore = false,
+        previewer = false,
+
+        find_command = {
+            "rg",
+            "--files",
+            "--color",
+            "never",
+            "--glob", "!**/.git/**",
+            "--glob", "!**/.venv/**",
+            "--glob", "!**/venv/**",
+            "--glob", "!**/env/**",
+            "--glob", "!**/node_modules/**",
+            "--glob", "!**/__pycache__/**",
+            "--glob", "!**/build/**",
+            "--glob", "!**/dist/**",
+            "--glob", "!**/.mypy_cache/**",
+            "--glob", "!**/.pytest_cache/**",
+        },
+    },
+},
             })
 
             -- Find files in the current working directory.

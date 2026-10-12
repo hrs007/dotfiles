@@ -30,7 +30,7 @@ return {
                 "cssls",        -- CSS
                 "jsonls",       -- JSON
                 "yamlls",       -- YAML
-                "lua_ls",       -- Lua (optional)
+                "lua_ls",       -- Lua
             },
 
             -- Automatically enable installed servers.
@@ -43,7 +43,109 @@ return {
                 capabilities = require("cmp_nvim_lsp").default_capabilities(),
             })
 
-            -- Configure Lua language server.
+            ----------------------------------------------------------------
+            -- Python LSP root detection
+            ----------------------------------------------------------------
+
+            local home = vim.fs.normalize(vim.fn.expand("~"))
+
+            local function set_python_root(bufnr, on_dir, markers)
+                local file = vim.api.nvim_buf_get_name(bufnr)
+
+                if file == "" then
+                    return
+                end
+
+                -- Find the nearest project marker.
+                local root = vim.fs.root(file, markers)
+
+                -- Avoid treating the home directory as every project's root.
+                if root
+                    and vim.fs.normalize(root):lower() == home:lower()
+                then
+                    local cwd = vim.fs.normalize(vim.fn.getcwd())
+                    local normalized_file =
+                        vim.fs.normalize(file):gsub("\\", "/"):lower()
+                    local normalized_cwd =
+                        cwd:gsub("\\", "/"):lower()
+
+                    if normalized_file:sub(1, #normalized_cwd + 1)
+                        == normalized_cwd .. "/"
+                    then
+                        root = cwd
+                    else
+                        root = vim.fs.dirname(file)
+                    end
+                end
+
+                root = root or vim.fs.dirname(file)
+
+                if root then
+                    on_dir(root)
+                end
+            end
+
+            ----------------------------------------------------------------
+            -- BasedPyright: Python type checking
+            ----------------------------------------------------------------
+
+            vim.lsp.config("basedpyright", {
+                root_dir = function(bufnr, on_dir)
+                    set_python_root(bufnr, on_dir, {
+                        "pyrightconfig.json",
+                        "pyproject.toml",
+                        "setup.py",
+                        "setup.cfg",
+                        "requirements.txt",
+                        "Pipfile",
+                        ".git",
+                    })
+                end,
+
+                settings = {
+                    basedpyright = {
+                        analysis = {
+                            autoSearchPaths = true,
+                            diagnosticMode = "openFilesOnly",
+
+                            -- Exclude large directories from analysis.
+                            exclude = {
+                                "**/.git",
+                                "**/.venv",
+                                "**/venv",
+                                "**/env",
+                                "**/AppData",
+                                "**/node_modules",
+                                "**/__pycache__",
+                                "**/build",
+                                "**/dist",
+                                "**/.mypy_cache",
+                                "**/.pytest_cache",
+                            },
+                        },
+                    },
+                },
+            })
+
+            ----------------------------------------------------------------
+            -- Ruff: Python linting
+            ----------------------------------------------------------------
+
+            vim.lsp.config("ruff", {
+                root_dir = function(bufnr, on_dir)
+                    set_python_root(bufnr, on_dir, {
+                        "ruff.toml",
+                        ".ruff.toml",
+                        "pyproject.toml",
+                        ".git",
+                    })
+                end,
+            })
+
+            ----------------------------------------------------------------
+            -- Lua language server
+            ----------------------------------------------------------------
+
             vim.lsp.config("lua_ls", {
                 settings = {
                     Lua = {
