@@ -169,3 +169,41 @@ map("n", "<leader>fw", function()
 end, {
     desc = "Find workspace symbols",
 })
+
+if vim.fn.has("win32") == 1 then
+    vim.keymap.set("n", "<leader>wb", function()
+        local solution = vim.fn.getcwd() .. "\\Equi.CCG.sln"
+        local msbuild = [[C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe]]
+
+        if vim.fn.filereadable(msbuild) == 0 then
+            vim.notify("MSBuild.exe not found. Check its path.", vim.log.levels.ERROR)
+            return
+        end
+
+        vim.cmd("botright 12split")
+        vim.fn.termopen({
+            msbuild,
+            solution,
+            "/t:Build",
+            "/p:Configuration=Release",
+            "/p:Platform=x64",
+        })
+        vim.cmd("startinsert")
+    end, { desc = "Build WPF solution (Release x64)" })
+end
+
+vim.keymap.set("n", "<leader>wr", function()
+    local exe = vim.fn.getcwd() .. "\\bin\\x64\\Release\\Equi.CCG.exe"
+
+    if vim.fn.filereadable(exe) == 0 then
+        vim.notify(
+            "Executable not found. Check your output path.",
+            vim.log.levels.ERROR
+        )
+        return
+    end
+
+    vim.cmd("botright 12split")
+    vim.fn.termopen({ "powershell.exe", "-NoExit", "-Command", "& '" .. exe .. "'" })
+    vim.cmd("startinsert")
+end, { desc = "Run WPF application" })
