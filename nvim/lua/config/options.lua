@@ -53,10 +53,13 @@ opt.listchars = {
 -- Files and windows
 opt.clipboard = "unnamedplus"
 opt.hidden = true
+-- Prompt before abandoning any modified buffer, including staged Oil edits.
+opt.confirm = true
 opt.autoread = true
 opt.undofile = true
 opt.splitbelow = true
 opt.splitright = true
+opt.sessionoptions = "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,localoptions"
 opt.wildmenu = true
 opt.wildmode = { "longest:full", "full" }
 

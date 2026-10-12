@@ -17,6 +17,9 @@ return {
                 show_hidden = true,
             },
 
+            -- Refresh open Oil buffers when files change outside Neovim.
+            watch_for_changes = true,
+
             columns = { "icon" },
             win_options = {
                 wrap = false,

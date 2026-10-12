@@ -27,6 +27,7 @@ return {
             },
         },
         keys = {
+            { "Q", "<Cmd>bdelete<CR>", desc = "Buffer: Close current" },
             { "<S-l>", "<Cmd>BufferLineCycleNext<CR>", desc = "Buffer: Next" },
             { "<S-h>", "<Cmd>BufferLineCyclePrev<CR>", desc = "Buffer: Previous" },
             { "<leader>vp", "<Cmd>BufferLinePick<CR>", desc = "Buffer: Pick" },

@@ -1,5 +1,16 @@
 return {
     {
+        "kdheepak/lazygit.nvim",
+        cmd = { "LazyGit", "LazyGitCurrentFile" },
+        dependencies = {
+            "nvim-lua/plenary.nvim",
+        },
+        keys = {
+            { "<leader>gL", "<Cmd>LazyGit<CR>", desc = "Git: LazyGit" },
+            { "<leader>gF", "<Cmd>LazyGitCurrentFile<CR>", desc = "Git: LazyGit current file" },
+        },
+    },
+    {
         "NeogitOrg/neogit",
         cmd = "Neogit",
         dependencies = {

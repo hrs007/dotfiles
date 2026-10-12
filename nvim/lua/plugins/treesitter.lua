@@ -8,12 +8,18 @@ return {
 
         -- Update parsers when installing or updating the plugin.
         build = ":TSUpdate",
+        dependencies = {
+            "windwp/nvim-ts-autotag",
+        },
 
         config = function()
             -- Configure Tree-sitter's parser installation directory.
             require("nvim-treesitter").setup({
                 install_dir = vim.fn.stdpath("data") .. "/site",
             })
+
+            -- Close matching HTML/JSX tags and rename their pairs together.
+            require("nvim-ts-autotag").setup()
 
             -- Enable Tree-sitter highlighting for supported filetypes.
             vim.api.nvim_create_autocmd("FileType", {

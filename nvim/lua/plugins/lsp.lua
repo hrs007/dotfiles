@@ -28,6 +28,9 @@ return {
                 "ts_ls",        -- JavaScript and TypeScript
                 "html",         -- HTML
                 "cssls",        -- CSS
+                "tailwindcss",  -- Tailwind CSS class completion and diagnostics
+                "emmet_language_server", -- Emmet abbreviations in markup and JSX
+                "eslint",       -- JavaScript and TypeScript linting and fixes
                 "jsonls",       -- JSON
                 "yamlls",       -- YAML
                 "lua_ls",       -- Lua
@@ -141,6 +144,44 @@ return {
                         ".git",
                     })
                 end,
+            })
+
+            ----------------------------------------------------------------
+            -- Tailwind CSS IntelliSense
+            ----------------------------------------------------------------
+
+            vim.lsp.config("tailwindcss", {
+                settings = {
+                    tailwindCSS = {
+                        classAttributes = {
+                            "class",
+                            "className",
+                            "class:list",
+                            "classList",
+                            "classNames",
+                            "ngClass",
+                        },
+                        classFunctions = {
+                            "clsx",
+                            "cn",
+                            "cva",
+                            "cx",
+                            "tw",
+                            "twMerge",
+                        },
+                    },
+                },
+            })
+
+            ----------------------------------------------------------------
+            -- Emmet abbreviations in HTML, JSX/TSX, Vue, Svelte, and CSS
+            ----------------------------------------------------------------
+
+            vim.lsp.config("emmet_language_server", {
+                init_options = {
+                    -- Let nvim-cmp expand Emmet completion items as snippets.
+                    showSuggestionsAsSnippets = true,
+                },
             })
 
             ----------------------------------------------------------------

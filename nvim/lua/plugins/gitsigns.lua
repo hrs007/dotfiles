@@ -49,13 +49,26 @@ return {
 
                 -- Preview changes.
                 map("<leader>hp", gs.preview_hunk, "Preview Git change")
+                map("<leader>hi", gs.preview_hunk_inline, "Preview Git change inline")
 
-                -- Stage and reset individual changes.
-                map("<leader>hs", gs.stage_hunk, "Stage Git change")
+                -- Stage/unstage a hunk, or stage every change in this buffer.
+                -- stage_hunk toggles staged hunks back out of the index too.
+                map("<leader>hs", gs.stage_hunk, "Stage/unstage Git change")
+                map("<leader>hu", gs.stage_hunk, "Unstage Git change")
+                map("<leader>hS", gs.stage_buffer, "Stage all file changes")
                 map("<leader>hr", gs.reset_hunk, "Reset Git change")
+
+                -- Stage or reset only the selected lines of a changed hunk.
+                vim.keymap.set("x", "<leader>hs", function()
+                    gs.stage_hunk({ vim.fn.line("."), vim.fn.line("v") })
+                end, { buffer = bufnr, desc = "Stage selected Git lines" })
+                vim.keymap.set("x", "<leader>hr", function()
+                    gs.reset_hunk({ vim.fn.line("."), vim.fn.line("v") })
+                end, { buffer = bufnr, desc = "Reset selected Git lines" })
 
                 -- Show the current line's Git history.
                 map("<leader>hb", gs.blame_line, "Show Git blame")
+                map("<leader>hB", gs.toggle_current_line_blame, "Toggle line blame")
 
                 -- Show the file's Git diff.
                 map("<leader>hd", gs.diffthis, "Show Git diff")

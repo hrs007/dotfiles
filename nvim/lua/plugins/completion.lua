@@ -4,9 +4,11 @@ return {
         event = "InsertEnter",
 
         dependencies = {
+            "windwp/nvim-autopairs",
             "hrsh7th/cmp-nvim-lsp",
             "hrsh7th/cmp-buffer",
             "hrsh7th/cmp-path",
+            "hrsh7th/cmp-cmdline",
             "L3MON4D3/LuaSnip",
             "saadparwaiz1/cmp_luasnip",
             "rafamadriz/friendly-snippets",
@@ -15,6 +17,10 @@ return {
         config = function()
             local cmp = require("cmp")
             local luasnip = require("luasnip")
+
+            -- Automatically insert matching delimiters in code buffers,
+            -- including TypeScript React (TSX) files.
+            require("nvim-autopairs").setup({})
 
             -- Load community snippet collections.
             require("luasnip.loaders.from_vscode").lazy_load()
@@ -105,6 +111,39 @@ return {
                     { name = "buffer" },
                 }),
             })
+
+            -- Show command and path completions as the user types after `:`.
+            cmp.setup.cmdline(":", {
+                completion = {
+                    autocomplete = { cmp.TriggerEvent.TextChanged },
+                },
+                mapping = cmp.mapping.preset.cmdline(),
+                sources = cmp.config.sources({
+                    { name = "path" },
+                }, {
+                    {
+                        name = "cmdline",
+                        option = { ignore_cmds = { "Man", "!" } },
+                    },
+                }),
+                matching = { disallow_symbol_nonprefix_matching = false },
+            })
+
+            -- Suggest matching words automatically for `/` and `?` searches.
+            cmp.setup.cmdline({ "/", "?" }, {
+                completion = {
+                    autocomplete = { cmp.TriggerEvent.TextChanged },
+                },
+                mapping = cmp.mapping.preset.cmdline(),
+                sources = { { name = "buffer" } },
+            })
+
+            -- Add a closing delimiter when accepting a completion that ends
+            -- with an opening delimiter, such as a function call.
+            cmp.event:on(
+                "confirm_done",
+                require("nvim-autopairs.completion.cmp").on_confirm_done()
+            )
         end,
     },
 }

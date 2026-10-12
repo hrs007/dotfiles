@@ -11,6 +11,7 @@ return {
         config = function()
             local telescope = require("telescope")
             local builtin = require("telescope.builtin")
+            local actions = require("telescope.actions")
 
             -- Initialize Telescope.
             telescope.setup({
@@ -34,6 +35,11 @@ return {
                     borderchars = {
                         "─", "│", "─", "│",
                         "╭", "╮", "╯", "╰",
+                    },
+                    mappings = {
+                        n = {
+                            ["q"] = actions.close,
+                        },
                     },
                 },
 
