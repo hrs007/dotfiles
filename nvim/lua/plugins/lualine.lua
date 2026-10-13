@@ -32,7 +32,9 @@ return {
                     lualine_c = {
                         {
                             "filename",
-                            path = 0,
+                            -- Show the file's path relative to the working directory
+                            -- in the existing statusline, without adding another row.
+                            path = 1,
                             symbols = { modified = " ●", readonly = " RO" },
                         },
                         "diagnostics",

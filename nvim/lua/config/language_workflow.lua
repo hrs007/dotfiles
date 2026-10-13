@@ -80,11 +80,18 @@ local function run_dotnet_project(project, key, start)
     start_terminal(key, { "dotnet", "run", "--project", project, "--configuration", "Release" }, start)
 end
 
-local function build_csharp(start, key)
+local function build_csharp(start, key, build_solution)
     local project = Project.find_csproj(start)
     if not project then
         notify("No .csproj found in this directory or its parents.")
         return
+    end
+
+    -- Build only the project containing the current file by default. A solution
+    -- build is available separately for users who want all projects together.
+    local target = project
+    if build_solution then
+        target = Project.find_solution(start) or project
     end
 
     if Project.is_sdk_project(project) then
@@ -94,7 +101,7 @@ local function build_csharp(start, key)
         end
         if focus_if_running(key) then return end
         vim.cmd("wall")
-        start_terminal(key, { "dotnet", "build", project, "--configuration", "Release" }, vim.fs.dirname(project))
+        start_terminal(key, { "dotnet", "build", target, "--configuration", "Release" }, vim.fs.dirname(target))
         return
     end
 
@@ -107,8 +114,6 @@ local function build_csharp(start, key)
 
     local content = Project.read_project(project) or ""
     local platform = content:find("Release|x64", 1, true) and "x64" or "AnyCPU"
-    local solution = Project.find_solution(start)
-    local target = solution or project
     vim.cmd("wall")
     start_terminal(key, {
         msbuild,
@@ -306,7 +311,7 @@ local function build()
     local ft = current_filetype()
     local key = "build:" .. workflow_root(ft, start)
     if ft == "cs" then
-        build_csharp(start, key)
+        build_csharp(start, key, false)
     elseif ft == "python" then
         build_python(current_file(), start, key)
     elseif ft == "javascript" or ft == "javascriptreact" or ft == "typescript" or ft == "typescriptreact" then
@@ -316,6 +321,20 @@ local function build()
     else
         notify("Build is not configured for filetype: " .. (ft ~= "" and ft or "unknown"))
     end
+end
+
+local function build_solution()
+    local start = current_start()
+    if current_filetype() ~= "cs" then
+        notify("Solution builds are available from a C# project.")
+        return
+    end
+    local solution = Project.find_solution(start)
+    if not solution then
+        notify("No solution found; building the current project instead.", vim.log.levels.INFO)
+    end
+    local key = "build-solution:" .. (solution or Project.find_csproj(start) or start)
+    build_csharp(start, key, true)
 end
 
 local function run()
@@ -337,9 +356,11 @@ local function run()
 end
 
 vim.keymap.set("n", "<leader>b", build, { desc = "Build current project" })
+vim.keymap.set("n", "<leader>B", build_solution, { desc = "Build C# solution" })
 vim.keymap.set("n", "<leader>r", run, { desc = "Run current project or file" })
 
 return {
     build = build,
+    build_solution = build_solution,
     run = run,
 }

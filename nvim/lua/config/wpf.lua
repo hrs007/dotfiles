@@ -53,19 +53,26 @@ local function start_terminal(key, command, cwd)
     return buffer
 end
 
-local function build_target(configuration, task)
+local function build_target(configuration, task, solution_scope)
     local root, solution, msbuild, _, platform = paths(configuration)
     if not root then return end
     if not msbuild then
         vim.notify("MSBuild was not found. Install Visual Studio Build Tools or add MSBuild.exe to PATH.", vim.log.levels.ERROR)
         return
     end
+    local project = Project.find_csproj(Project.current_dir())
+    local target = solution_scope and solution or project
+    if not target then
+        vim.notify("No build target was found.", vim.log.levels.ERROR)
+        return
+    end
     local key = task .. ":" .. configuration
+        .. (solution_scope and ":solution" or ":project")
     if focus_if_running(key) then return end
     vim.cmd("wall")
     local buffer = start_terminal(key, {
         msbuild,
-        solution,
+        target,
         "/t:" .. task,
         "/p:Configuration=" .. configuration,
         "/p:Platform=" .. platform,
@@ -83,6 +90,10 @@ end
 
 local function rebuild(configuration)
     build_target(configuration, "Rebuild")
+end
+
+local function build_solution(configuration)
+    build_target(configuration, "Build", true)
 end
 
 local function run(configuration, arguments)
@@ -179,6 +190,7 @@ vim.keymap.set("n", "<leader>mX", function() build_and_run("Debug") end, { desc 
 vim.keymap.set("n", "<leader>me", function() rebuild("Release") end, { desc = "WPF: Rebuild Release x64" })
 vim.keymap.set("n", "<leader>mC", function() clean("Debug") end, { desc = "WPF: Clean Debug x64" })
 vim.keymap.set("n", "<leader>mE", function() rebuild("Debug") end, { desc = "WPF: Rebuild Debug x64" })
+vim.keymap.set("n", "<leader>mS", function() build_solution("Release") end, { desc = "WPF: Build Release solution" })
 vim.keymap.set("n", "<leader>mo", function() open_output("Release") end, { desc = "WPF: Open Release output" })
 vim.keymap.set("n", "<leader>mO", function() open_output("Debug") end, { desc = "WPF: Open Debug output" })
 vim.keymap.set("n", "<leader>mp", function() open_output("Release", true) end, { desc = "WPF: Show Release output in Explorer" })

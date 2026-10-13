@@ -4,7 +4,16 @@ return {
         event = "VeryLazy",
         dependencies = {
             "MunifTanjim/nui.nvim",
-            "rcarriga/nvim-notify",
+            {
+                "rcarriga/nvim-notify",
+                opts = {
+                    render = "compact",
+                    max_width = 52,
+                    max_height = 4,
+                    timeout = 2500,
+                    stages = "fade_in_slide_out",
+                },
+            },
         },
         opts = {
             cmdline = {
