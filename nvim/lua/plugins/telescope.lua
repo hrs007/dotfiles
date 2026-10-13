@@ -37,8 +37,12 @@ return {
                         "╭", "╮", "╯", "╰",
                     },
                     mappings = {
+                        i = {
+                            ["<C-q>"] = actions.smart_send_to_qflist + actions.open_qflist,
+                        },
                         n = {
                             ["q"] = actions.close,
+                            ["<C-q>"] = actions.smart_send_to_qflist + actions.open_qflist,
                         },
                     },
                 },
@@ -79,9 +83,11 @@ pickers = {
                 desc = "Search project text",
             })
 
-            -- Find currently open buffers.
-            vim.keymap.set("n", "<leader>fb", builtin.buffers, {
-                desc = "Find buffers",
+            -- Switch quickly among currently open files, most recently used first.
+            vim.keymap.set("n", "<leader>fb", function()
+                builtin.buffers({ sort_mru = true, ignore_current_buffer = true })
+            end, {
+                desc = "Recent buffers",
             })
 
             -- Search Neovim's help documentation.

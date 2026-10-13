@@ -1,5 +1,9 @@
 local opt = vim.opt
 
+-- Give leader-key sequences enough time to complete comfortably.
+opt.timeout = true
+opt.timeoutlen = 2000
+
 vim.cmd("filetype plugin indent on")
 
 -- Treat WPF XAML as XML for syntax, LSP, and formatting support.

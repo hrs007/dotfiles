@@ -3,6 +3,7 @@ return {
         "nvim-lualine/lualine.nvim",
         dependencies = {
             "nvim-tree/nvim-web-devicons",
+            "SmiteshP/nvim-navic",
         },
         event = "VeryLazy",
         opts = function()
@@ -11,6 +12,18 @@ return {
                 return client ~= nil
                     and not client.is_disabled()
                     and client.buf_is_attached(vim.api.nvim_get_current_buf())
+            end
+
+            local function breadcrumb()
+                local navic = package.loaded["nvim-navic"]
+                if not navic or not navic.is_available() then
+                    -- Keep the winbar row present while LSP symbols load or
+                    -- when the cursor is outside a symbol.
+                    return " "
+                end
+
+                local location = navic.get_location()
+                return location ~= "" and location or " "
             end
 
             return {
@@ -56,6 +69,22 @@ return {
                     },
                     lualine_y = { "progress" },
                     lualine_z = { "location" },
+                },
+                winbar = {
+                    lualine_c = {
+                        {
+                            breadcrumb,
+                            color = { fg = "#a6adc8" },
+                        },
+                    },
+                },
+                inactive_winbar = {
+                    lualine_c = {
+                        {
+                            breadcrumb,
+                            color = { fg = "#a6adc8" },
+                        },
+                    },
                 },
             }
         end,

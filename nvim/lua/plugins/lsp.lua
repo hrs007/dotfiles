@@ -89,6 +89,14 @@ return {
                 end
             end
 
+            local function set_project_root(bufnr, on_dir, markers)
+                local file = vim.api.nvim_buf_get_name(bufnr)
+                if file == "" then
+                    return
+                end
+                on_dir(vim.fs.root(file, markers) or vim.fs.dirname(file))
+            end
+
             ----------------------------------------------------------------
             -- BasedPyright: Python type checking
             ----------------------------------------------------------------
@@ -103,6 +111,25 @@ return {
                         "requirements.txt",
                         "Pipfile",
                         ".git",
+                    })
+                end,
+
+                on_init = function(client)
+                    local interpreter = require("config.python").resolve(client.config.root_dir)
+                    if not interpreter then
+                        return
+                    end
+
+                    -- BasedPyright accepts python.pythonPath as a language
+                    -- server setting. Send the project interpreter after the
+                    -- client initializes so each project can use its own env.
+                    client.config.settings = vim.tbl_deep_extend(
+                        "force",
+                        client.config.settings or {},
+                        { python = { pythonPath = interpreter } }
+                    )
+                    client:notify("workspace/didChangeConfiguration", {
+                        settings = client.config.settings,
                     })
                 end,
 
@@ -141,6 +168,24 @@ return {
                         "ruff.toml",
                         ".ruff.toml",
                         "pyproject.toml",
+                        ".git",
+                    })
+                end,
+            })
+
+            -- Keep ESLint attached to the nearest frontend project so each
+            -- package uses its own lint config in monorepos.
+            vim.lsp.config("eslint", {
+                root_dir = function(bufnr, on_dir)
+                    set_project_root(bufnr, on_dir, {
+                        "eslint.config.js",
+                        "eslint.config.mjs",
+                        "eslint.config.cjs",
+                        ".eslintrc",
+                        ".eslintrc.js",
+                        ".eslintrc.cjs",
+                        ".eslintrc.json",
+                        "package.json",
                         ".git",
                     })
                 end,

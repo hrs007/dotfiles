@@ -136,6 +136,68 @@ return {
             dap.configurations.cpp = cpp_config
 
             -- ==========================================
+            -- JavaScript / TypeScript / Browser Debugging
+            -- ==========================================
+
+            local js_debug = mason .. "/packages/js-debug-adapter/js-debug/src/dapDebugServer.js"
+            local node = vim.fn.exepath("node")
+            if node ~= "" then
+                for _, adapter in ipairs({ "pwa-node", "pwa-chrome", "pwa-msedge" }) do
+                    dap.adapters[adapter] = {
+                        type = "server",
+                        host = "127.0.0.1",
+                        port = "${port}",
+                        executable = {
+                            command = node,
+                            args = { js_debug, "${port}" },
+                        },
+                    }
+                end
+
+                local js_configurations = {
+                    {
+                        name = "Launch current file (Node)",
+                        type = "pwa-node",
+                        request = "launch",
+                        program = "${file}",
+                        cwd = "${workspaceFolder}",
+                        sourceMaps = true,
+                        skipFiles = { "<node_internals>/**", "**/node_modules/**" },
+                    },
+                    {
+                        name = "Launch browser (Vite / React)",
+                        type = "pwa-chrome",
+                        request = "launch",
+                        url = function()
+                            return vim.fn.input("App URL: ", "http://localhost:5173")
+                        end,
+                        webRoot = "${workspaceFolder}",
+                        sourceMaps = true,
+                        skipFiles = { "<node_internals>/**", "**/node_modules/**" },
+                    },
+                }
+
+                for _, filetype in ipairs({ "javascript", "javascriptreact", "typescript", "typescriptreact" }) do
+                    dap.configurations[filetype] = vim.deepcopy(js_configurations)
+                end
+
+                vim.api.nvim_create_autocmd("FileType", {
+                    pattern = { "javascript", "javascriptreact", "typescript", "typescriptreact" },
+                    callback = function(event)
+                        vim.keymap.set("n", "<leader>Dj", function()
+                            vim.cmd("wall")
+                            dap.run(vim.deepcopy(js_configurations[2]))
+                        end, {
+                            buffer = event.buf,
+                            desc = "Debug: Launch browser for web app",
+                        })
+                    end,
+                })
+            else
+                vim.notify("Node.js is required to start the JavaScript debugger.", vim.log.levels.WARN)
+            end
+
+            -- ==========================================
             -- Debugging Keymaps
             -- ==========================================
 

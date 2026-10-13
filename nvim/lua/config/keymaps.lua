@@ -7,13 +7,8 @@ local map = vim.keymap.set
 -- Leader Keys
 -- ==========================================
 
--- Use Space as the prefix for custom keyboard shortcuts.
--- For example, Space followed by w will save the file.
-vim.g.mapleader = " "
-
--- Set the local leader key to Space as well.
--- This is useful for filetype-specific mappings later.
-vim.g.maplocalleader = " "
+-- Reserve Space as a prefix instead of moving the cursor in Normal mode.
+map("n", "<Space>", "<Nop>", { desc = "Leader key" })
 
 
 -- ==========================================
@@ -108,10 +103,98 @@ map("n", "<leader>ph", "<cmd>split<CR>", { desc = "Window: Split below" })
 map("n", "<leader>pv", "<cmd>vsplit<CR>", { desc = "Window: Split right" })
 map("n", "<leader>pe", "<C-w>=", { desc = "Window: Balance sizes" })
 map("n", "<leader>po", "<C-w>o", { desc = "Window: Close others" })
-map("n", "<leader>pH", "<C-w><", { desc = "Window: Narrow" })
-map("n", "<leader>pL", "<C-w>>", { desc = "Window: Widen" })
-map("n", "<leader>pJ", "<C-w>-", { desc = "Window: Shorten" })
-map("n", "<leader>pK", "<C-w>+", { desc = "Window: Heighten" })
+
+-- Resize the active split in the direction that matches its shape. This also
+-- works for Trouble, terminals, Oil, quickfix, and Git panels opened in splits.
+local panel_sizes = {}
+local function panel_axis(win)
+    local position = vim.api.nvim_win_get_position(win)
+    local y, x = position[1], position[2]
+    local width, height = vim.api.nvim_win_get_width(win), vim.api.nvim_win_get_height(win)
+    local best_overlap, vertical = 0, nil
+    for _, other in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if other ~= win and vim.api.nvim_win_get_config(other).relative == "" then
+            local other_position = vim.api.nvim_win_get_position(other)
+            local oy, ox = other_position[1], other_position[2]
+            local ow, oh = vim.api.nvim_win_get_width(other), vim.api.nvim_win_get_height(other)
+            local overlap_x = math.max(0, math.min(x + width, ox + ow) - math.max(x, ox))
+            local overlap_y = math.max(0, math.min(y + height, oy + oh) - math.max(y, oy))
+            local overlap = math.max(overlap_x, overlap_y)
+            if overlap > best_overlap then
+                best_overlap = overlap
+                vertical = overlap_y >= overlap_x
+            end
+        end
+    end
+    -- In a split layout, a tall shared edge means side-by-side windows; a
+    -- wide shared edge means stacked windows. Fall back to the panel shape
+    -- when the active window has no neighboring split.
+    if vertical == nil then
+        return width < height
+    end
+    return vertical
+end
+
+local function resize_active_panel(direction)
+    local win = vim.api.nvim_get_current_win()
+    local vertical = panel_axis(win)
+    local size = vertical and vim.api.nvim_win_get_width(win) or vim.api.nvim_win_get_height(win)
+    local step = vertical and 8 or 3
+    local minimum = vertical and 24 or 5
+    local maximum = vertical and math.max(minimum, vim.o.columns - 24) or math.max(minimum, vim.o.lines - 6)
+    local next_size = math.min(maximum, math.max(minimum, size + direction * step))
+    local ok = pcall(function()
+        if vertical then
+            vim.api.nvim_win_set_width(win, next_size)
+        else
+            vim.api.nvim_win_set_height(win, next_size)
+        end
+    end)
+    if ok then
+        vim.cmd("redraw!")
+    end
+end
+
+local function toggle_active_panel_size()
+    local win = vim.api.nvim_get_current_win()
+    local vertical = panel_axis(win)
+    local saved = panel_sizes[win]
+    if saved then
+        pcall(function()
+            if saved.vertical then
+                vim.api.nvim_win_set_width(win, saved.size)
+            else
+                vim.api.nvim_win_set_height(win, saved.size)
+            end
+        end)
+        panel_sizes[win] = nil
+        vim.cmd("redraw!")
+        return
+    end
+
+    local size = vertical and vim.api.nvim_win_get_width(win) or vim.api.nvim_win_get_height(win)
+    panel_sizes[win] = { size = size, vertical = vertical }
+    local target = vertical and math.min(math.max(24, vim.o.columns - 24), math.floor(vim.o.columns * 0.55))
+        or math.max(5, math.min(vim.o.lines - 6, math.max(8, math.floor(vim.o.lines * 0.55))))
+    pcall(function()
+        if vertical then
+            vim.api.nvim_win_set_width(win, target)
+        else
+            vim.api.nvim_win_set_height(win, target)
+        end
+    end)
+    vim.cmd("redraw!")
+end
+
+map("n", "<leader>p+", function() resize_active_panel(1) end, { desc = "Panel: Increase size" })
+map("n", "<leader>p-", function() resize_active_panel(-1) end, { desc = "Panel: Decrease size" })
+map("n", "<leader>p=", toggle_active_panel_size, { desc = "Panel: Maximize / restore" })
+
+vim.api.nvim_create_autocmd("WinClosed", {
+    callback = function(event)
+        panel_sizes[tonumber(event.match)] = nil
+    end,
+})
 
 
 -- Set up keymaps when an LSP attaches to a buffer.
@@ -133,10 +216,14 @@ vim.api.nvim_create_autocmd("LspAttach", {
         vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
 
         -- Rename a symbol.
-        vim.keymap.set("n", "<leader>cr", vim.lsp.buf.rename, opts)
+        vim.keymap.set("n", "<leader>cr", vim.lsp.buf.rename, vim.tbl_extend("force", opts, {
+            desc = "Code: Rename symbol",
+        }))
 
         -- Show available code actions.
-        vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
+        vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, vim.tbl_extend("force", opts, {
+            desc = "Code: Actions / fixes",
+        }))
 
         -- Jump to the previous diagnostic.
         vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, opts)
@@ -153,6 +240,56 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
 -- Keep one reusable horizontal terminal for long-running jobs such as Vite.
 local toggle_terminal_buf
+
+local function current_python_environment()
+    return require("config.python").environment_for_buffer(vim.api.nvim_get_current_buf())
+end
+
+local function activate_python_environment(buf, environment, on_ready)
+    if not environment or not vim.api.nvim_buf_is_valid(buf) then
+        if on_ready then on_ready() end
+        return
+    end
+    if vim.b[buf].python_venv == environment then
+        if on_ready then on_ready() end
+        return
+    end
+
+    vim.b[buf].python_venv = environment
+    vim.defer_fn(function()
+        if not vim.api.nvim_buf_is_valid(buf) or vim.bo[buf].buftype ~= "terminal" then
+            return
+        end
+        local job = vim.b[buf].terminal_job_id
+        if not job then
+            return
+        end
+
+        local shell = vim.o.shell:lower()
+        local command
+        if shell:match("powershell") or shell:match("pwsh") then
+            local script = vim.fs.joinpath(environment, "Scripts", "Activate.ps1")
+            command = "& '" .. script:gsub("'", "''") .. "'"
+        elseif shell:match("cmd%.exe") or shell:match("\\cmd$") then
+            local script = vim.fs.joinpath(environment, "Scripts", "activate.bat")
+            command = 'call "' .. script .. '"'
+        elseif shell:match("fish") then
+            local script = vim.fs.joinpath(environment, "bin", "activate.fish")
+            command = ". " .. vim.fn.shellescape(script)
+        else
+            local script = vim.fs.joinpath(environment, "bin", "activate")
+            if vim.fn.filereadable(script) ~= 1 then
+                -- Windows virtual environments also provide a POSIX activation
+                -- script for shells such as Git Bash.
+                script = vim.fs.joinpath(environment, "Scripts", "activate")
+            end
+            command = "source " .. vim.fn.shellescape(script)
+        end
+
+        vim.api.nvim_chan_send(job, command .. "\n")
+        if on_ready then on_ready() end
+    end, 120)
+end
 
 local function hide_terminal()
     local win = vim.api.nvim_get_current_win()
@@ -175,6 +312,7 @@ local function hide_terminal()
 end
 
 local function toggle_terminal()
+    local python_environment = current_python_environment()
     if toggle_terminal_buf and vim.api.nvim_buf_is_valid(toggle_terminal_buf) then
         local terminal_win
         for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -198,7 +336,11 @@ local function toggle_terminal()
 
     vim.cmd("botright 12split | terminal")
     toggle_terminal_buf = vim.api.nvim_get_current_buf()
-    vim.cmd("startinsert")
+    activate_python_environment(toggle_terminal_buf, python_environment, function()
+        if vim.api.nvim_get_current_buf() == toggle_terminal_buf then
+            vim.cmd("startinsert")
+        end
+    end)
 end
 
 vim.keymap.set("n", "<leader>th", toggle_terminal, {
@@ -207,12 +349,22 @@ vim.keymap.set("n", "<leader>th", toggle_terminal, {
 
 -- Open a terminal in a vertical split
 vim.keymap.set("n", "<leader>tv", function()
+    local python_environment = current_python_environment()
     vim.cmd("botright vsplit | terminal")
+    local buf = vim.api.nvim_get_current_buf()
+    activate_python_environment(buf, python_environment, function()
+        if vim.api.nvim_get_current_buf() == buf then vim.cmd("startinsert") end
+    end)
 end, { desc = "Terminal: Vertical" })
 
 -- Open a terminal in a full window
 vim.keymap.set("n", "<leader>tt", function()
+    local python_environment = current_python_environment()
     vim.cmd("terminal")
+    local buf = vim.api.nvim_get_current_buf()
+    activate_python_environment(buf, python_environment, function()
+        if vim.api.nvim_get_current_buf() == buf then vim.cmd("startinsert") end
+    end)
 end, { desc = "Terminal: Full window" })
 
 -- Stop the terminal job, remove its buffer, and close its split.
