@@ -43,7 +43,9 @@ opt.incsearch = true
 opt.showmode = false
 opt.showcmd = false
 opt.ruler = false
-opt.signcolumn = "yes"
+-- Keep one sign column normally, and allow a second only when diagnostics and
+-- Git hunk signs need to appear on the same line.
+opt.signcolumn = "auto:2"
 opt.laststatus = 3
 opt.termguicolors = true
 opt.mouse = "a"
@@ -74,3 +76,23 @@ opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 opt.foldlevel = 99
 opt.foldlevelstart = 99
 opt.foldenable = true
+
+-- Keep Neovide's GUI behavior close to terminal Neovim. These globals are
+-- ignored by regular Neovim and preserve multigrid/floating UI support.
+if vim.g.neovide then
+    vim.g.neovide_position_animation_length = 0
+    vim.g.neovide_cursor_animation_length = 0
+    vim.g.neovide_cursor_short_animation_length = 0
+    vim.g.neovide_cursor_trail_size = 0
+    vim.g.neovide_cursor_animate_in_insert_mode = false
+    vim.g.neovide_cursor_animate_command_line = false
+    vim.g.neovide_cursor_smooth_blink = false
+    vim.g.neovide_cursor_vfx_mode = ""
+    vim.g.neovide_scroll_animation_length = 0
+    vim.g.neovide_scroll_animation_far_lines = 0
+    vim.g.neovide_floating_blur_amount_x = 0
+    vim.g.neovide_floating_blur_amount_y = 0
+    vim.g.neovide_floating_shadow = false
+    vim.g.neovide_floating_corner_radius = 0
+    vim.g.neovide_progress_bar_enabled = false
+end

@@ -55,6 +55,23 @@ return {
                 },
             },
         },
+        config = function(_, opts)
+            -- Neovim 0.12 can send a lifecycle-only `restart` event to UI
+            -- clients when a GUI attaches to an existing embedded instance.
+            -- Noice expects widget events such as `msg_show` and errors while
+            -- parsing `restart` as a widget name. Ignore that non-widget event
+            -- so message, command-line, and popup UI keep working afterward.
+            local ui = require("noice.ui")
+            local get_handler = ui.get_handler
+            ui.get_handler = function(event, ...)
+                if type(event) ~= "string" or event == "restart" then
+                    return
+                end
+                return get_handler(event, ...)
+            end
+
+            require("noice").setup(opts)
+        end,
         keys = {
             { "<leader>nh", "<Cmd>Noice history<CR>", desc = "UI: Message history" },
             { "<leader>nd", "<Cmd>Noice dismiss<CR>", desc = "UI: Dismiss notifications" },

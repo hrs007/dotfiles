@@ -62,7 +62,6 @@ map("n", "<leader>w", "<cmd>write<CR>", {
     desc = "Save file",
 })
 
-
 -- ==========================================
 -- Quitting
 -- ==========================================
@@ -196,6 +195,31 @@ vim.api.nvim_create_autocmd("WinClosed", {
     end,
 })
 
+
+-- Diagnostic controls: visibility toggles are session-only, while rule ignores
+-- can be saved for the current project or every project.
+map("n", "<leader>ne", function()
+    require("config.diagnostics").toggle_severity(vim.diagnostic.severity.ERROR, "Errors")
+end, { desc = "Diagnostics: Toggle errors" })
+map("n", "<leader>nw", function()
+    require("config.diagnostics").toggle_severity(vim.diagnostic.severity.WARN, "Warnings")
+end, { desc = "Diagnostics: Toggle warnings" })
+map("n", "<leader>ni", function()
+    require("config.diagnostics").ignore_current_rule()
+end, { desc = "Diagnostics: Ignore rule" })
+map("n", "<leader>nu", function()
+    require("config.diagnostics").unignore_rule()
+end, { desc = "Diagnostics: Manage ignored rules" })
+map("n", "<leader>ns", function()
+    require("config.diagnostics").toggle_signs()
+end, { desc = "Diagnostics: Toggle signs" })
+map("n", "<leader>nf", "<Cmd>FormatOnSaveToggle<CR>", {
+    desc = "Formatting: Toggle format on save",
+})
+map("n", "<leader>cR", function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    require("config.diagnostics").select_profile(bufnr)
+end, { desc = "Diagnostics: Configure rule profile" })
 
 -- Set up keymaps when an LSP attaches to a buffer.
 vim.api.nvim_create_autocmd("LspAttach", {

@@ -60,12 +60,7 @@ return {
                     clang_format = { cwd = root_file({ ".clang-format", "_clang-format" }) },
                 },
                 format_on_save = function(bufnr)
-                    return {
-                        timeout_ms = 5000,
-                        -- XAML uses LemMinX's XML formatter; other files use
-                        -- their configured external formatter only.
-                        lsp_format = vim.bo[bufnr].filetype == "xml" and "fallback" or "never",
-                    }
+                    return require("config.formatting").format_on_save(bufnr)
                 end,
             }
         end,

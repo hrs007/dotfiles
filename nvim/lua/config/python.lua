@@ -2,7 +2,39 @@
 local M = {}
 
 local state_path = vim.fn.stdpath("state") .. "/python-interpreters.json"
+local diagnostics_state_path = vim.fn.stdpath("state") .. "/python-diagnostics.json"
 local selected_by_root = {}
+local profile_by_root = {}
+
+local diagnostic_profiles = {
+    quiet = {
+        label = "Quiet · core correctness checks",
+        basedpyright = "off",
+        -- Keep only fatal parse/IO failures and undefined names. Ruff's full
+        -- F group also reports unused imports, shadowing, and other cleanup
+        -- findings, which made Quiet unexpectedly noisy in larger files.
+        ruff = { "E9", "F821" },
+        description = "syntax and undefined-name checks; type checks disabled",
+    },
+    basic = {
+        label = "Basic",
+        basedpyright = "basic",
+        ruff = { "E4", "E7", "E9", "F" },
+        description = "common type, syntax, and Python correctness checks",
+    },
+    standard = {
+        label = "Standard",
+        basedpyright = "standard",
+        ruff = { "E", "F" },
+        description = "broader type checking and style checks",
+    },
+    strict = {
+        label = "Strict",
+        basedpyright = "strict",
+        ruff = { "E", "F", "B", "UP" },
+        description = "strict typing plus bug-prone and modernization rules",
+    },
+}
 
 do
     local file = io.open(state_path, "r")
@@ -12,6 +44,18 @@ do
         local ok, saved = pcall(vim.json.decode, content)
         if ok and type(saved) == "table" then
             selected_by_root = saved
+        end
+    end
+end
+
+do
+    local file = io.open(diagnostics_state_path, "r")
+    if file then
+        local content = file:read("*a")
+        file:close()
+        local ok, saved = pcall(vim.json.decode, content)
+        if ok and type(saved) == "table" then
+            profile_by_root = saved
         end
     end
 end
@@ -53,6 +97,156 @@ local function project_root(bufnr)
         }) or vim.fs.dirname(file))
     end
     return normalize(vim.fn.getcwd())
+end
+
+function M.diagnostics_profile(root)
+    local current_root = normalize(root or vim.fn.getcwd())
+    -- Ruff and BasedPyright can choose different roots in the same project.
+    -- Reuse the nearest saved project profile when one server's root is nested.
+    local name = profile_by_root[current_root]
+    if not name then
+        local parent = vim.fs.dirname(current_root)
+        while parent and parent ~= current_root do
+            name = profile_by_root[parent]
+            if name then
+                break
+            end
+            current_root, parent = parent, vim.fs.dirname(parent)
+        end
+    end
+    -- New projects use the quiet baseline; saved per-project choices continue
+    -- to override it.
+    name = name or "quiet"
+    return name, diagnostic_profiles[name] or diagnostic_profiles.standard
+end
+
+local function ruff_settings(profile)
+    return {
+        -- Explicitly selected profiles should take effect even when a project
+        -- has a Ruff config; users can still switch back to their own rules by
+        -- selecting a profile that matches them.
+        configurationPreference = "editorFirst",
+        configuration = {
+            lint = {
+                select = vim.deepcopy(profile.ruff),
+            },
+        },
+    }
+end
+
+function M.ruff_settings_for_root(root)
+    local _, profile = M.diagnostics_profile(root)
+    return ruff_settings(profile)
+end
+
+function M.apply_diagnostics_profile(root, profile_name, bufnr)
+    root = normalize(root)
+    local profile = diagnostic_profiles[profile_name]
+    if not profile then
+        vim.notify("Unknown Python diagnostics profile: " .. tostring(profile_name), vim.log.levels.ERROR)
+        return false
+    end
+
+    profile_by_root[root] = profile_name
+    vim.fn.mkdir(vim.fn.fnamemodify(diagnostics_state_path, ":h"), "p")
+    local ok, encoded = pcall(vim.json.encode, profile_by_root)
+    if not ok or vim.fn.writefile({ encoded }, diagnostics_state_path) ~= 0 then
+        vim.notify("Could not save the Python diagnostics profile.", vim.log.levels.ERROR)
+        return false
+    end
+
+    -- Use clients attached to this Python buffer. Ruff and BasedPyright may
+    -- have different root markers, so exact root equality can silently skip
+    -- one of them.
+    local clients = bufnr and vim.lsp.get_clients({ bufnr = bufnr }) or vim.lsp.get_clients()
+    local updated, restart_ruff = {}, false
+    for _, client in ipairs(clients) do
+        if client.name == "basedpyright" or client.name == "ruff" then
+            if client.name == "basedpyright" then
+                client.config.settings = vim.tbl_deep_extend(
+                    "force",
+                    client.config.settings or {},
+                    { basedpyright = { analysis = { typeCheckingMode = profile.basedpyright } } }
+                )
+                client:notify("workspace/didChangeConfiguration", { settings = client.config.settings })
+                updated[#updated + 1] = client.name
+            elseif client.name == "ruff" then
+                local settings = ruff_settings(profile)
+                client.config.init_options = vim.tbl_deep_extend(
+                    "force",
+                    client.config.init_options or {},
+                    { settings = settings }
+                )
+                client:notify("workspace/didChangeConfiguration", {
+                    settings = client.config.init_options.settings,
+                })
+                updated[#updated + 1] = client.name
+                restart_ruff = true
+            end
+        end
+    end
+
+    -- Drop diagnostics produced by the previous rule set immediately. The
+    -- servers republish with the selected settings (Ruff after its restart).
+    if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+        vim.diagnostic.reset(nil, bufnr)
+    end
+
+    -- Ruff reads its initialization settings when the server starts. Restart
+    -- it after updating its cached config so the selected rule set is used
+    -- immediately, including when a project has its own Ruff config file.
+    if restart_ruff then
+        vim.schedule(function()
+            local ok = pcall(vim.cmd, "lsp restart ruff")
+            if not ok then
+                vim.notify(
+                    "Ruff profile saved, but this Neovim version could not restart Ruff automatically. Run :lsp restart ruff.",
+                    vim.log.levels.WARN
+                )
+            end
+        end)
+    end
+
+    vim.notify(
+        ("Python checks for %s: %s%s (%s)"):format(
+            vim.fn.fnamemodify(root, ":~"),
+            profile.label,
+            #updated > 0 and (" · updated " .. table.concat(updated, ", ")) or " · saved for next LSP start",
+            profile.description
+        ),
+        vim.log.levels.INFO
+    )
+    return true
+end
+
+function M.apply_diagnostics_profile_for_buffer(bufnr, profile_name)
+    return M.apply_diagnostics_profile(project_root(bufnr), profile_name, bufnr)
+end
+
+function M.select_diagnostics_profile(bufnr)
+    local root = project_root(bufnr)
+    local choices = {}
+    for name, profile in pairs(diagnostic_profiles) do
+        choices[#choices + 1] = {
+            name = name,
+            label = profile.label .. "  ·  " .. profile.description,
+        }
+    end
+    table.sort(choices, function(a, b)
+        return a.name < b.name
+    end)
+
+    local current = M.diagnostics_profile(root)
+    vim.ui.select(choices, {
+        prompt = "Python diagnostics · " .. vim.fn.fnamemodify(root, ":~") .. " (current: " .. current .. ")",
+        format_item = function(choice)
+            return choice.label
+        end,
+    }, function(choice)
+        if choice then
+            M.apply_diagnostics_profile(root, choice.name, bufnr)
+        end
+    end)
 end
 
 function M.resolve(root)
@@ -201,6 +395,25 @@ end
 vim.api.nvim_create_user_command("PythonSelectInterpreter", function()
     select_interpreter(vim.api.nvim_get_current_buf())
 end, { desc = "Choose the Python interpreter for this project" })
+
+vim.api.nvim_create_user_command("PythonDiagnosticsProfile", function(command)
+    local bufnr = vim.api.nvim_get_current_buf()
+    if command.args == "" then
+        M.select_diagnostics_profile(bufnr)
+        return
+    end
+
+    local root = project_root(bufnr)
+    if not M.apply_diagnostics_profile(root, command.args:lower(), bufnr) then
+        vim.notify("Choose one of: quiet, basic, standard, strict", vim.log.levels.INFO)
+    end
+end, {
+    nargs = "?",
+    complete = function()
+        return { "quiet", "basic", "standard", "strict" }
+    end,
+    desc = "Choose Python diagnostics rules for this project",
+})
 
 vim.api.nvim_create_autocmd("FileType", {
     pattern = "python",

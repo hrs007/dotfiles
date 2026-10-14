@@ -115,18 +115,25 @@ return {
                 end,
 
                 on_init = function(client)
-                    local interpreter = require("config.python").resolve(client.config.root_dir)
-                    if not interpreter then
-                        return
-                    end
+                    local python = require("config.python")
+                    local interpreter = python.resolve(client.config.root_dir)
+                    local _, profile = python.diagnostics_profile(client.config.root_dir)
 
-                    -- BasedPyright accepts python.pythonPath as a language
-                    -- server setting. Send the project interpreter after the
-                    -- client initializes so each project can use its own env.
+                    -- Set the selected project interpreter and diagnostics
+                    -- profile after initialization so stored per-project
+                    -- preferences take effect on every launch.
+                    local updates = {
+                        basedpyright = {
+                            analysis = { typeCheckingMode = profile.basedpyright },
+                        },
+                    }
+                    if interpreter then
+                        updates.python = { pythonPath = interpreter }
+                    end
                     client.config.settings = vim.tbl_deep_extend(
                         "force",
                         client.config.settings or {},
-                        { python = { pythonPath = interpreter } }
+                        updates
                     )
                     client:notify("workspace/didChangeConfiguration", {
                         settings = client.config.settings,
@@ -136,6 +143,9 @@ return {
                 settings = {
                     basedpyright = {
                         analysis = {
+                            -- Keep new Python projects quiet by default. The
+                            -- project profile manager can enable deeper checks.
+                            typeCheckingMode = "off",
                             autoSearchPaths = true,
                             diagnosticMode = "openFilesOnly",
 
@@ -163,6 +173,28 @@ return {
             ----------------------------------------------------------------
 
             vim.lsp.config("ruff", {
+                -- Ruff 0.17 expanded its built-in default rule set
+                -- substantially. Keep a focused baseline when a project has
+                -- no Ruff config, and let filesystem project config win.
+                init_options = {
+                    settings = {
+                        configurationPreference = "filesystemFirst",
+                        configuration = {
+                            lint = {
+                                select = { "E9", "F" },
+                            },
+                        },
+                    },
+                },
+                on_init = function(client)
+                    local settings = require("config.python").ruff_settings_for_root(client.config.root_dir)
+                    client.config.init_options = vim.tbl_deep_extend(
+                        "force",
+                        client.config.init_options or {},
+                        { settings = settings }
+                    )
+                    client:notify("workspace/didChangeConfiguration", { settings = settings })
+                end,
                 root_dir = function(bufnr, on_dir)
                     set_python_root(bufnr, on_dir, {
                         "ruff.toml",

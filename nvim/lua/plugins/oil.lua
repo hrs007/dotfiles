@@ -39,11 +39,33 @@ return {
                 desc = "Open parent directory",
             })
 
-            -- Open Oil at the current working directory.
+            -- When Neovim starts in home, open Oil at the current file's
+            -- home-relative directory. Else preserve the original behavior
+            -- and open Neovim's current working directory.
             vim.keymap.set("n", "<leader>e", function()
-                require("oil").open(vim.fn.getcwd())
+                local oil = require("oil")
+                local cwd = vim.fs.normalize(vim.fn.getcwd())
+                local home = vim.fs.normalize(vim.fn.expand("~"))
+                local target = cwd
+
+                if cwd == home then
+                    local directory = vim.bo.filetype == "oil" and oil.get_current_dir() or nil
+                    if not directory or directory == "" then
+                        local file = vim.api.nvim_buf_get_name(0)
+                        directory = file ~= "" and vim.fs.dirname(file) or home
+                    end
+
+                    target = vim.fn.fnamemodify(directory, ":~")
+                    if target == "~" then
+                        target = "."
+                    elseif target:sub(1, 2) == "~/" then
+                        target = target:sub(3)
+                    end
+                end
+
+                oil.open(target)
             end, {
-                desc = "Open file explorer",
+                desc = "Open current directory in Oil (home-relative)",
             })
         end,
     },
