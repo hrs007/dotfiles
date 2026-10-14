@@ -16,7 +16,7 @@ return {
         dependencies = {
             "mason-org/mason.nvim",
             "neovim/nvim-lspconfig",
-            "hrsh7th/cmp-nvim-lsp",
+            "saghen/blink.cmp",
         },
 
         -- Language servers to install.
@@ -42,9 +42,9 @@ return {
         },
 
         config = function(_, opts)
-            -- Enable nvim-cmp completion capabilities for LSP servers.
+            -- Enable blink.cmp completion capabilities for LSP servers.
             vim.lsp.config("*", {
-                capabilities = require("cmp_nvim_lsp").default_capabilities(),
+                capabilities = require("blink.cmp").get_lsp_capabilities(),
             })
 
             ----------------------------------------------------------------

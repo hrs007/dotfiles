@@ -13,10 +13,44 @@ return {
         },
 
         config = function()
+            local ts = require("nvim-treesitter")
+
             -- Configure Tree-sitter's parser installation directory.
-            require("nvim-treesitter").setup({
+            ts.setup({
                 install_dir = vim.fn.stdpath("data") .. "/site",
             })
+
+            -- Ensure core parsers are installed.
+            local ensure_installed = {
+                "lua",
+                "vim",
+                "vimdoc",
+                "python",
+                "javascript",
+                "typescript",
+                "tsx",
+                "html",
+                "css",
+                "c",
+                "cpp",
+                "c_sharp",
+                "json",
+                "yaml",
+                "xml",
+                "markdown",
+                "markdown_inline",
+                "bash",
+                "diff",
+            }
+
+            local installed = ts.get_installed()
+            local to_install = vim.tbl_filter(function(lang)
+                return not vim.tbl_contains(installed, lang)
+            end, ensure_installed)
+
+            if #to_install > 0 then
+                ts.install(to_install)
+            end
 
             -- Close matching HTML/JSX tags and rename their pairs together.
             require("nvim-ts-autotag").setup()

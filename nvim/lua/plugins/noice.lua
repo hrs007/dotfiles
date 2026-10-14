@@ -26,11 +26,9 @@ return {
             notify = {
                 enabled = true,
             },
-            -- Align command-line completions with the command palette.
-            -- nvim-cmp keeps its own separate code-completion window.
             popupmenu = {
                 enabled = true,
-                backend = "cmp",
+                backend = "nui",
             },
             lsp = {
                 progress = {

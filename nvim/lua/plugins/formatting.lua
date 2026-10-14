@@ -1,17 +1,18 @@
 local is_windows = vim.fn.has("win32") == 1
 local formatters_by_ft = {
+    lua = { "stylua" },
     python = { "ruff_format" },
-    javascript = { "prettier", "prettierd", stop_after_first = true },
-    javascriptreact = { "prettier", "prettierd", stop_after_first = true },
-    typescript = { "prettier", "prettierd", stop_after_first = true },
-    typescriptreact = { "prettier", "prettierd", stop_after_first = true },
-    html = { "prettier", "prettierd", stop_after_first = true },
-    css = { "prettier", "prettierd", stop_after_first = true },
-    scss = { "prettier", "prettierd", stop_after_first = true },
-    json = { "prettier", "prettierd", stop_after_first = true },
-    jsonc = { "prettier", "prettierd", stop_after_first = true },
-    yaml = { "prettier", "prettierd", stop_after_first = true },
-    markdown = { "prettier", "prettierd", stop_after_first = true },
+    javascript = { "prettierd", "prettier", stop_after_first = true },
+    javascriptreact = { "prettierd", "prettier", stop_after_first = true },
+    typescript = { "prettierd", "prettier", stop_after_first = true },
+    typescriptreact = { "prettierd", "prettier", stop_after_first = true },
+    html = { "prettierd", "prettier", stop_after_first = true },
+    css = { "prettierd", "prettier", stop_after_first = true },
+    scss = { "prettierd", "prettier", stop_after_first = true },
+    json = { "prettierd", "prettier", stop_after_first = true },
+    jsonc = { "prettierd", "prettier", stop_after_first = true },
+    yaml = { "prettierd", "prettier", stop_after_first = true },
+    markdown = { "prettierd", "prettier", stop_after_first = true },
     c = { "clang_format" },
     cpp = { "clang_format" },
 }
@@ -19,8 +20,9 @@ local formatters_by_ft = {
 -- LazyGit is installed separately from Mason; Mason manages executable
 -- formatters and debug adapters here.
 local ensure_installed = {
-    "prettier",
+    "stylua",
     "prettierd",
+    "prettier",
     "clang-format",
     "debugpy",
     "codelldb",

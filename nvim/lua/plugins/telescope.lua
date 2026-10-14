@@ -6,6 +6,13 @@ return {
         -- Utility library required by Telescope.
         dependencies = {
             "nvim-lua/plenary.nvim",
+            {
+                "nvim-telescope/telescope-fzf-native.nvim",
+                build = "make",
+                cond = function()
+                    return vim.fn.executable("make") == 1
+                end,
+            },
         },
 
         config = function()
@@ -72,6 +79,8 @@ pickers = {
     },
 },
             })
+
+            pcall(telescope.load_extension, "fzf")
 
             -- Find files in the current working directory.
             vim.keymap.set("n", "<leader>ff", builtin.find_files, {

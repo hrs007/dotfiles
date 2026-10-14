@@ -17,7 +17,8 @@ vim.filetype.add({
 opt.number = true
 opt.relativenumber = true
 opt.cursorline = true
-opt.cursorlineopt = "number"
+-- Highlight the full current line.
+opt.cursorlineopt = "line"
 opt.wrap = false
 opt.scrolloff = 5
 opt.sidescrolloff = 5

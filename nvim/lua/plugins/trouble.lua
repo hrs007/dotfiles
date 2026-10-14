@@ -80,9 +80,8 @@ return {
         opts = {
             -- Move focus into the Trouble list whenever it opens.
             focus = true,
-            -- Keep list views visible even before quickfix or location lists
-            -- have any entries, so these shortcuts still give clear feedback.
-            open_no_results = true,
+            -- Don't create an empty panel when the selected list has no entries.
+            open_no_results = false,
             win = {
                 position = "bottom",
                 size = 10,

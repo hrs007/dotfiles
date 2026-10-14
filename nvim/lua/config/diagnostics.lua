@@ -10,8 +10,7 @@ vim.diagnostic.config({
         },
     },
 
-    -- Keep errors visible in the sign column and underlines without
-    -- adding inline text to every affected line.
+    -- Keep diagnostics visible both in the sign column and under affected text.
     underline = true,
     virtual_text = false,
 

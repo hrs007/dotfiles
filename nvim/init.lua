@@ -7,6 +7,7 @@ require("config.options")
 
 -- Load custom keyboard shortcuts from keymaps.lua
 require("config.keymaps")
+require("config.related_files")
 
 -- Load Windows-only C# editor shortcuts.
 if vim.fn.has("win32") == 1 then
