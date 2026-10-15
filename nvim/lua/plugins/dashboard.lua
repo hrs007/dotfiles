@@ -57,6 +57,12 @@ return {
 
                     shortcut = {
                         {
+                            desc = "File Explorer",
+                            group = "Label",
+                            action = "Oil",
+                            key = "e",
+                        },
+                        {
                             desc = "Find File",
                             group = "Label",
                             action = "Telescope find_files",

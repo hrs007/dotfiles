@@ -1,6 +1,7 @@
 -- Shared build/run keys with project discovery based on the current file.
 local Project = require("config.project")
 local terminal_buffers = {}
+local vite_server_buffers = {}
 local is_windows = vim.fn.has("win32") == 1
 
 local function notify(message, level)
@@ -33,6 +34,7 @@ local function start_terminal(key, command, cwd)
     terminal_buffers[key] = buffer
     vim.fn.termopen(command, { cwd = cwd })
     vim.cmd("startinsert")
+    return buffer
 end
 
 local function current_file()
@@ -281,6 +283,47 @@ local function run_package_script(manager, script)
     return { package_manager_command(manager), "run", script }
 end
 
+local function open_browser_preview(buffer)
+    local url
+    if buffer and vim.api.nvim_buf_is_valid(buffer) then
+        local lines = vim.api.nvim_buf_get_lines(buffer, 0, -1, false)
+        for index = #lines, 1, -1 do
+            local candidate = lines[index]:match("https?://[^%s]+")
+            if candidate then
+                url = candidate:gsub("[%]%)},;]+$", ""):gsub("%.$", "")
+                break
+            end
+        end
+    end
+
+    local function open(url_to_open)
+        if not url_to_open or url_to_open == "" then return end
+        if not url_to_open:match("^https?://") then url_to_open = "http://" .. url_to_open end
+        if vim.ui.open then
+            local ok, err = pcall(vim.ui.open, url_to_open)
+            if ok then return end
+            notify("Could not open the browser preview: " .. tostring(err), vim.log.levels.ERROR)
+            return
+        end
+
+        local opener = vim.fn.has("mac") == 1 and "open"
+            or (vim.fn.has("win32") == 1 and "cmd.exe" or "xdg-open")
+        local command = opener == "cmd.exe" and { opener, "/c", "start", "", url_to_open }
+            or { opener, url_to_open }
+        if vim.fn.executable(opener) ~= 1 then
+            notify("No system browser opener was found.", vim.log.levels.ERROR)
+            return
+        end
+        vim.fn.jobstart(command, { detach = true })
+    end
+
+    if url then
+        open(url)
+    else
+        vim.ui.input({ prompt = "Preview URL", default = "http://localhost:5173" }, open)
+    end
+end
+
 local function build_javascript(start, key)
     local package = Project.find_package_json(start)
     local data = Project.read_json(package)
@@ -327,6 +370,151 @@ local function run_javascript(file, start, key)
     if focus_if_running(key) then return end
     vim.cmd("wall")
     start_terminal(key, { "node", file }, package and vim.fs.dirname(package) or start)
+end
+
+local function choose_package_script(start)
+    local package = Project.find_package_json(start)
+    local data = Project.read_json(package)
+    local scripts = data and data.scripts
+    if not package or type(scripts) ~= "table" then
+        notify("No package.json scripts were found in this project.")
+        return
+    end
+
+    local names = vim.tbl_keys(scripts)
+    table.sort(names)
+    if #names == 0 then
+        notify("The nearest package.json has no scripts.")
+        return
+    end
+
+    local manager = package_manager(package, data)
+    local executable = package_manager_command(manager)
+    if vim.fn.executable(executable) ~= 1 then
+        notify(manager .. " was not found on PATH.", vim.log.levels.ERROR)
+        return
+    end
+
+    vim.ui.select(names, {
+        prompt = "Run " .. manager .. " script",
+        format_item = function(name)
+            return ("%-16s %s"):format(name, tostring(scripts[name]))
+        end,
+    }, function(script)
+        if not script then return end
+        local cwd = vim.fs.dirname(package)
+        local key = "web-script:" .. package .. ":" .. script
+        if focus_if_running(key) then return end
+        vim.cmd("wall")
+        start_terminal(key, run_package_script(manager, script), cwd)
+    end)
+end
+
+local function choose_vite_server(start)
+    local package = Project.find_package_json(start)
+    local data = Project.read_json(package)
+    local scripts = data and data.scripts
+    if not package or type(scripts) ~= "table" then
+        notify("No package.json was found for this web project.")
+        return
+    end
+
+    local server_scripts = {}
+    for name, command in pairs(scripts) do
+        local command_text = tostring(command):lower()
+        if name == "dev" or name == "start" or name == "serve"
+            or (command_text:find("vite", 1, true) and not command_text:find("build", 1, true))
+        then
+            server_scripts[#server_scripts + 1] = name
+        end
+    end
+    table.sort(server_scripts, function(a, b)
+        local rank = { dev = 1, start = 2, serve = 3 }
+        local ar, br = rank[a] or 4, rank[b] or 4
+        if ar == br then return a < b end
+        return ar < br
+    end)
+    if #server_scripts == 0 then
+        notify("No dev, start, serve, or Vite script was found in package.json.")
+        return
+    end
+
+    local key = "vite-server:" .. package
+    local buffer = vite_server_buffers[key]
+    if not buffer or not vim.api.nvim_buf_is_valid(buffer) then
+        buffer = terminal_buffers[key]
+        vite_server_buffers[key] = buffer
+    end
+    local job = buffer and vim.api.nvim_buf_is_valid(buffer) and vim.b[buffer].terminal_job_id
+    local running = job and vim.fn.jobwait({ job }, 0)[1] == -1
+
+    local choices = {}
+    if running then
+        choices = { "Open browser preview", "Focus running server", "Stop server", "Restart server" }
+    else
+        choices = { "Start dev server", "Open browser preview" }
+        if buffer and vim.api.nvim_buf_is_valid(buffer) then
+            table.insert(choices, "Reopen server terminal")
+        end
+    end
+
+    vim.ui.select(choices, { prompt = "Vite / dev server · " .. vim.fn.fnamemodify(package, ":~:h") }, function(choice)
+        if not choice then return end
+        if choice == "Open browser preview" then
+            open_browser_preview(buffer)
+            return
+        elseif choice == "Focus running server" then
+            if not focus_if_running(key) then
+                notify("The dev server is no longer running.", vim.log.levels.INFO)
+            end
+            return
+        elseif choice == "Stop server" then
+            if job then pcall(vim.fn.jobstop, job) end
+            notify("Stopped the dev server. Its terminal output is available to reopen.", vim.log.levels.INFO)
+            return
+        elseif choice == "Reopen server terminal" then
+            if not buffer or not vim.api.nvim_buf_is_valid(buffer) then return end
+            local windows = vim.fn.win_findbuf(buffer)
+            if #windows > 0 then
+                vim.api.nvim_set_current_win(windows[1])
+            else
+                vim.cmd("botright 12sbuffer " .. buffer)
+            end
+            if job and vim.fn.jobwait({ job }, 0)[1] == -1 then vim.cmd("startinsert") end
+            return
+        end
+
+        local function start(script)
+            if not script then return end
+            local manager = package_manager(package, data)
+            local executable = package_manager_command(manager)
+            if vim.fn.executable(executable) ~= 1 then
+                notify(manager .. " was not found on PATH.", vim.log.levels.ERROR)
+                return
+            end
+
+            local old_buffer = vite_server_buffers[key]
+            local old_job = old_buffer and vim.api.nvim_buf_is_valid(old_buffer) and vim.b[old_buffer].terminal_job_id
+            if old_job and vim.fn.jobwait({ old_job }, 0)[1] == -1 then pcall(vim.fn.jobstop, old_job) end
+            if old_buffer and vim.api.nvim_buf_is_valid(old_buffer) then
+                pcall(vim.api.nvim_buf_delete, old_buffer, { force = true })
+            end
+            terminal_buffers[key] = nil
+            vite_server_buffers[key] = nil
+            vim.cmd("wall")
+            local new_buffer = start_terminal(key, run_package_script(manager, script), vim.fs.dirname(package))
+            vite_server_buffers[key] = new_buffer
+        end
+
+        if #server_scripts == 1 then
+            start(server_scripts[1])
+        else
+            vim.ui.select(server_scripts, {
+                prompt = "Choose dev server script",
+                format_item = function(name) return name .. "  ·  " .. tostring(scripts[name]) end,
+            }, start)
+        end
+    end)
 end
 
 local native_targets = {}
@@ -646,6 +834,24 @@ local function build_keymap_for_buffer(bufnr)
         pcall(vim.keymap.del, "n", "<leader>b", { buffer = bufnr })
     end
 
+    local is_web = filetype == "javascript" or filetype == "javascriptreact"
+        or filetype == "typescript" or filetype == "typescriptreact"
+    if is_web then
+        vim.keymap.set("n", "<leader>cN", function()
+            choose_package_script(vim.api.nvim_buf_call(bufnr, current_start))
+        end, { buffer = bufnr, desc = "Web: Run package script" })
+        vim.keymap.set("n", "<leader>cA", function()
+            require("config.code_actions").web_menu()
+        end, { buffer = bufnr, desc = "Web: TypeScript / ESLint actions" })
+        vim.keymap.set("n", "<leader>cV", function()
+            choose_vite_server(vim.api.nvim_buf_call(bufnr, current_start))
+        end, { buffer = bufnr, desc = "Web: Vite server controls" })
+    else
+        pcall(vim.keymap.del, "n", "<leader>cN", { buffer = bufnr })
+        pcall(vim.keymap.del, "n", "<leader>cA", { buffer = bufnr })
+        pcall(vim.keymap.del, "n", "<leader>cV", { buffer = bufnr })
+    end
+
     local is_native = filetype == "c" or filetype == "cpp" or filetype == "objc" or filetype == "objcpp"
     if is_native then
         vim.keymap.set("n", "<leader>cT", function()
@@ -675,4 +881,6 @@ return {
     build = build,
     build_solution = build_solution,
     run = run,
+    choose_package_script = choose_package_script,
+    choose_vite_server = choose_vite_server,
 }

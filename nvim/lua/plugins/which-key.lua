@@ -13,6 +13,7 @@ return {
             },
 
             spec = {
+                { "<leader>e", desc = "Open file explorer", icon = { icon = "󰙅", color = "cyan" } },
                 { "<leader>f", group = "Find", icon = { icon = "", color = "green" } },
                 { "<leader>g", group = "Git", icon = { icon = "󰊢", color = "orange" } },
                 { "<leader>l", group = "Markup / XAML", icon = { icon = "󰅩", color = "cyan" } },
@@ -21,6 +22,12 @@ return {
                 { "<leader>s", group = "Sessions", icon = { icon = "󰆓", color = "azure" } },
                 { "<leader>d", group = "Diagnostics", icon = { icon = "󱖫", color = "green" } },
                 { "<leader>c", group = "Code", icon = { icon = "", color = "orange" } },
+                { "<leader>cA", desc = "Web: TypeScript / ESLint actions" },
+                { "<leader>cC", desc = "Web: Component, style, story, or test" },
+                { "<leader>cI", desc = "Web: Open or create import file" },
+                { "<leader>cN", desc = "Web: Run package script" },
+                { "<leader>cP", desc = "Web: Find pages and routes" },
+                { "<leader>cV", desc = "Web: Vite controls and live preview" },
                 { "<leader>D", group = "Debug", icon = { icon = "󰃤", color = "red" } },
                 { "<leader>x", group = "Trouble", icon = { icon = "󰒡", color = "red" } },
                 { "<leader>v", group = "Buffers", icon = { icon = "󰈔", color = "cyan" } },

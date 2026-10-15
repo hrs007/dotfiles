@@ -42,10 +42,21 @@ return {
         },
 
         config = function(_, opts)
-            -- Enable blink.cmp completion capabilities for LSP servers.
-            vim.lsp.config("*", {
-                capabilities = require("blink.cmp").get_lsp_capabilities(),
+            -- Enable Blink completion and LSP file-operation capabilities so
+            -- Oil can ask TypeScript servers to rewrite imports on moves.
+            local capabilities = require("blink.cmp").get_lsp_capabilities()
+            capabilities.workspace = vim.tbl_deep_extend("force", capabilities.workspace or {}, {
+                fileOperations = {
+                    dynamicRegistration = false,
+                    willRename = true,
+                    didRename = true,
+                    willCreate = true,
+                    didCreate = true,
+                    willDelete = true,
+                    didDelete = true,
+                },
             })
+            vim.lsp.config("*", { capabilities = capabilities })
 
             ----------------------------------------------------------------
             -- Python LSP root detection

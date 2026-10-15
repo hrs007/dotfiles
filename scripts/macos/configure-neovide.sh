@@ -31,8 +31,10 @@ if ! grep -q '^\[font\]' "$CONFIG"; then
 
 [font]
 normal = ["JetBrainsMono Nerd Font Mono"]
-size = 14.0
+size = 18.0
 TOML
+else
+  sed -i '' '/^\[font\]/,/^\[/ s/^size[[:space:]]*=.*/size = 18.0/' "$CONFIG"
 fi
 
 if command -v duti >/dev/null 2>&1; then

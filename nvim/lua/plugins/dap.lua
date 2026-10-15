@@ -149,9 +149,13 @@ return {
                 end
             end
 
-            map("n", "<leader>DM", debug_maui_windows, {
-                desc = "Debug: Launch MAUI Windows app",
-            })
+            -- MAUI Windows debugging is Windows-only; don't expose a dead
+            -- leader mapping in macOS or Linux Neovim sessions.
+            if is_windows then
+                map("n", "<leader>DM", debug_maui_windows, {
+                    desc = "Debug: Launch MAUI Windows app",
+                })
+            end
 
             -- ==========================================
             -- Debug UI

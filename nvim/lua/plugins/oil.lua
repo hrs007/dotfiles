@@ -23,6 +23,16 @@ return {
             -- Refresh open Oil buffers when files change outside Neovim.
             watch_for_changes = true,
 
+            -- Notify attached language servers before/after file moves so
+            -- TypeScript can rewrite imports. Auto-save only buffers that
+            -- were clean before the workspace edit; modified buffers remain
+            -- open with their LSP changes for the user to review and save.
+            lsp_file_methods = {
+                enabled = true,
+                timeout_ms = 2000,
+                autosave_changes = "unmodified",
+            },
+
             columns = { "icon" },
             win_options = {
                 wrap = false,

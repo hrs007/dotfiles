@@ -68,4 +68,19 @@ function M.open()
     vim.lsp.buf.code_action()
 end
 
+function M.web_menu()
+    local actions = {
+        { label = "All available code actions", only = nil },
+        { label = "Organize imports", only = { "source.organizeImports" } },
+        { label = "Fix all ESLint issues", only = { "source.fixAll.eslint" } },
+    }
+    vim.ui.select(actions, {
+        prompt = "TypeScript / ESLint action",
+        format_item = function(action) return action.label end,
+    }, function(action)
+        if not action then return end
+        vim.lsp.buf.code_action({ context = { only = action.only } })
+    end)
+end
+
 return M

@@ -63,6 +63,7 @@ end, { desc = "Delete the current buffer's swap file" })
 -- Load custom keyboard shortcuts from keymaps.lua
 require("config.keymaps")
 require("config.related_files")
+require("config.web_routes").setup()
 require("config.terminal_title")
 require("config.code_actions").setup()
 
@@ -73,6 +74,7 @@ if vim.fn.has("win32") == 1 then
 end
 require("config.python_references").setup()
 require("config.cpp_references").setup()
+require("config.symbol_references").setup()
 require("config.xaml")
 
 -- Shared build/run workflow and Windows WPF commands.

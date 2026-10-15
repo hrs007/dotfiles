@@ -47,7 +47,15 @@ local function source_declarations(bufnr)
         end
         if name then
             local col = (clean:find(name, 1, true) or 1) - 1
-            candidates[#candidates + 1] = { name = name, row = row - 1, col = col, indent = #indent }
+            candidates[#candidates + 1] = {
+                name = name,
+                row = row - 1,
+                col = col,
+                end_col = col + #name,
+                end_row = row - 1,
+                highlight = { row = row - 1, col = 0, end_row = row - 1, end_col = #line },
+                indent = #indent,
+            }
         end
         local _, opens = clean:gsub("%{", "")
         local _, closes = clean:gsub("%}", "")
@@ -89,7 +97,38 @@ local function declarations(bufnr)
             local key = row .. ":" .. col
             if name ~= "" and not seen[key] then
                 seen[key] = true
-                found[#found + 1] = { name = name, row = row, col = col, end_row = end_row, end_col = end_col }
+                local highlight_node = node
+                local declaration_node
+                local parent = node:parent()
+                while parent do
+                    local kind = parent:type()
+                    if kind == "function_definition" or kind == "class_specifier"
+                        or kind == "struct_specifier" or kind == "enum_specifier"
+                    then
+                        highlight_node = parent
+                        break
+                    elseif not declaration_node and (kind == "declaration" or kind == "field_declaration") then
+                        declaration_node = parent
+                    end
+                    parent = parent:parent()
+                end
+                if highlight_node == node and declaration_node then
+                    highlight_node = declaration_node
+                end
+                local highlight_row, highlight_col, highlight_end_row, highlight_end_col = highlight_node:range()
+                found[#found + 1] = {
+                    name = name,
+                    row = row,
+                    col = col,
+                    end_row = end_row,
+                    end_col = end_col,
+                    highlight = {
+                        row = highlight_row,
+                        col = highlight_col,
+                        end_row = highlight_end_row,
+                        end_col = highlight_end_col,
+                    },
+                }
             end
         end
     end
@@ -137,8 +176,20 @@ local function scan(bufnr)
                         virt_lines_above = true,
                         priority = 250,
                     }
-                    if result.count == 0 then mark.hl_group = "ConfigUnusedSymbol" end
-                    pcall(api.nvim_buf_set_extmark, bufnr, namespace, item.row, item.col, mark)
+                    if result.count == 0 then
+                        mark.hl_group = "ConfigUnusedSymbol"
+                        local range = item.highlight or {
+                            row = item.row,
+                            col = item.col,
+                            end_row = item.end_row or item.row,
+                            end_col = item.end_col or (item.col + #(item.name or "")),
+                        }
+                        mark.end_row = range.end_row
+                        mark.end_col = range.end_col
+                        pcall(api.nvim_buf_set_extmark, bufnr, namespace, range.row, range.col, mark)
+                    else
+                        pcall(api.nvim_buf_set_extmark, bufnr, namespace, item.row, item.col, mark)
+                    end
                 end
             end)
         end)

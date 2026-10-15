@@ -22,6 +22,12 @@ return {
             },
             messages = {
                 enabled = true,
+                -- Keep ordinary :echo/:messages output in the command area;
+                -- reserve notification popups for vim.notify and warnings.
+                view = "cmdline",
+                view_error = "notify",
+                view_warn = "notify",
+                view_history = "messages",
             },
             notify = {
                 enabled = true,
@@ -55,6 +61,12 @@ return {
                     border = {
                         style = "rounded",
                     },
+                },
+            },
+            commands = {
+                all = {
+                    view = "split",
+                    opts = { enter = true, format = "details" },
                 },
             },
         },

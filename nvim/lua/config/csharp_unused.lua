@@ -23,6 +23,7 @@ local function collect_declarations_from_lines(bufnr)
                 col = col,
                 end_row = row - 1,
                 end_col = col + #name,
+                highlight = { row = row - 1, col = 0, end_row = row - 1, end_col = #line },
             }
         end
     end
@@ -65,12 +66,34 @@ local function collect_declarations(bufnr)
         local key = row .. ":" .. col .. ":" .. name
         if not seen[key] then
             seen[key] = true
+            local highlight_node = name_node
+            local parent = name_node:parent()
+            while parent do
+                local kind = parent:type()
+                if kind == "method_declaration" or kind == "class_declaration"
+                    or kind == "struct_declaration" or kind == "interface_declaration"
+                    or kind == "enum_declaration" or kind == "record_declaration"
+                    or kind == "field_declaration" or kind == "event_field_declaration"
+                    or kind == "property_declaration" or kind == "event_declaration"
+                then
+                    highlight_node = parent
+                    break
+                end
+                parent = parent:parent()
+            end
+            local highlight_row, highlight_col, highlight_end_row, highlight_end_col = highlight_node:range()
             declarations[#declarations + 1] = {
                 name = name,
                 row = row,
                 col = col,
                 end_row = end_row,
                 end_col = end_col,
+                highlight = {
+                    row = highlight_row,
+                    col = highlight_col,
+                    end_row = highlight_end_row,
+                    end_col = highlight_end_col,
+                },
             }
         end
     end
@@ -164,8 +187,20 @@ local function scan(bufnr)
                             virt_lines_above = true,
                             priority = 250,
                         }
-                        if result.count == 0 then mark.hl_group = "ConfigUnusedSymbol" end
-                        pcall(api.nvim_buf_set_extmark, bufnr, namespace, item.row, item.col, mark)
+                        if result.count == 0 then
+                            mark.hl_group = "ConfigUnusedSymbol"
+                            local range = item.highlight or {
+                                row = item.row,
+                                col = item.col,
+                                end_row = item.end_row or item.row,
+                                end_col = item.end_col or item.col + #(item.name or ""),
+                            }
+                            mark.end_row = range.end_row
+                            mark.end_col = range.end_col
+                            pcall(api.nvim_buf_set_extmark, bufnr, namespace, range.row, range.col, mark)
+                        else
+                            pcall(api.nvim_buf_set_extmark, bufnr, namespace, item.row, item.col, mark)
+                        end
                     end
                 end)
             end)

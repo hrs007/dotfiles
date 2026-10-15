@@ -44,7 +44,7 @@ vim.api.nvim_create_autocmd("VimEnter", {
             end
 
             vim.cmd("Dashboard")
-        end, 1200)
+        end, 250)
     end,
     desc = "Show dashboard after Neovide file-open events settle",
 })

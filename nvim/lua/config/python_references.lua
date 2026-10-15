@@ -9,13 +9,34 @@ local scan_id = {}
 local function declarations_from_lines(bufnr)
     local found = {}
     local lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    local function scope_end(start_row, indent)
+        local last = start_row
+        for index = start_row + 1, #lines do
+            local line = lines[index]
+            local leading = #(line:match("^(%s*)") or "")
+            if line:match("%S") and leading <= indent then break end
+            if line:match("%S") then last = index end
+        end
+        return last - 1, #(lines[last] or "")
+    end
+
     for row, line in ipairs(lines) do
         local indent, name = line:match("^(%s*)def%s+([%a_][%w_]*)%s*%(")
         if not name then indent, name = line:match("^(%s*)async%s+def%s+([%a_][%w_]*)%s*%(") end
         if not name then indent, name = line:match("^(%s*)class%s+([%a_][%w_]*)%s*[:%(]") end
         if name then
             local col = (line:find(name, #indent + 1, true) or 1) - 1
-            found[#found + 1] = { name = name, row = row - 1, col = col }
+            local block = line:match("^%s*def%s+") or line:match("^%s*async%s+def%s+") or line:match("^%s*class%s+")
+            local end_row, end_col = row - 1, #line
+            if block then end_row, end_col = scope_end(row, #indent) end
+            found[#found + 1] = {
+                name = name,
+                row = row - 1,
+                col = col,
+                end_row = end_row,
+                end_col = end_col,
+                highlight = { row = row - 1, col = 0, end_row = end_row, end_col = end_col },
+            }
         elseif not line:match("^%s*#") then
             local lhs = line:match("^(%s*)([%a_][%w_]*)%s*:%s*[^=]+=")
                 or line:match("^(%s*)([%a_][%w_]*)%s*=[^=]")
@@ -31,7 +52,14 @@ local function declarations_from_lines(bufnr)
                     end
                 end
                 if not scope_is_local and variable then
-                    found[#found + 1] = { name = variable, row = row - 1, col = #indent_text }
+                    found[#found + 1] = {
+                        name = variable,
+                        row = row - 1,
+                        col = #indent_text,
+                        end_col = #indent_text + #variable,
+                        end_row = row - 1,
+                        highlight = { row = row - 1, col = 0, end_row = row - 1, end_col = #line },
+                    }
                 end
             end
         end
@@ -71,7 +99,33 @@ local function declarations(bufnr)
             local key = row .. ":" .. col
             if name ~= "" and not seen[key] then
                 seen[key] = true
-                found[#found + 1] = { name = name, row = row, col = col, end_row = end_row, end_col = end_col }
+                local highlight_node = node
+                local parent = node:parent()
+                while parent do
+                    local kind = parent:type()
+                    if kind == "function_definition" or kind == "class_definition" then
+                        highlight_node = parent
+                        break
+                    elseif kind == "assignment" or kind == "typed_assignment" then
+                        highlight_node = parent
+                        break
+                    end
+                    parent = parent:parent()
+                end
+                local highlight_row, highlight_col, highlight_end_row, highlight_end_col = highlight_node:range()
+                found[#found + 1] = {
+                    name = name,
+                    row = row,
+                    col = col,
+                    end_row = end_row,
+                    end_col = end_col,
+                    highlight = {
+                        row = highlight_row,
+                        col = highlight_col,
+                        end_row = highlight_end_row,
+                        end_col = highlight_end_col,
+                    },
+                }
             end
         end
     end
@@ -124,8 +178,20 @@ local function scan(bufnr)
                         virt_lines_above = true,
                         priority = 250,
                     }
-                    if result.count == 0 then mark.hl_group = "ConfigUnusedSymbol" end
-                    pcall(api.nvim_buf_set_extmark, bufnr, namespace, item.row, item.col, mark)
+                    if result.count == 0 then
+                        mark.hl_group = "ConfigUnusedSymbol"
+                        local range = item.highlight or {
+                            row = item.row,
+                            col = item.col,
+                            end_row = item.end_row or item.row,
+                            end_col = item.end_col or (item.col + #(item.name or "")),
+                        }
+                        mark.end_row = range.end_row
+                        mark.end_col = range.end_col
+                        pcall(api.nvim_buf_set_extmark, bufnr, namespace, range.row, range.col, mark)
+                    else
+                        pcall(api.nvim_buf_set_extmark, bufnr, namespace, item.row, item.col, mark)
+                    end
                 end
             end)
         end)
