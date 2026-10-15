@@ -56,6 +56,87 @@ function M.find_solution(start)
     return solutions[1]
 end
 
+function M.solution_projects(solution)
+    local content = M.read_project(solution)
+    if not content then
+        return {}
+    end
+
+    local projects = {}
+    local function add_project(relative_path)
+        relative_path = relative_path:gsub("&amp;", "&")
+        local path = vim.fs.normalize(vim.fs.dirname(solution) .. "/" .. relative_path)
+        if vim.fn.filereadable(path) == 1 then
+            table.insert(projects, path)
+        end
+    end
+
+    if solution:lower():match("%.slnx$") then
+        for tag in content:gmatch("<Project%s+([^>]-)>") do
+            local relative_path = tag:match("Path%s*=%s*['\"]([^'\"]+%.csproj)['\"]")
+            if relative_path then
+                add_project(relative_path)
+            end
+        end
+    else
+        for line in content:gmatch("[^\r\n]+") do
+            local relative_path = line:match(',%s*"([^\"]+%.csproj)"')
+            if relative_path then
+                add_project(relative_path)
+            end
+        end
+    end
+
+    table.sort(projects)
+    return projects
+end
+
+function M.is_runnable_project(project)
+    local content = M.read_project(project) or ""
+    for output_type in content:gmatch("<OutputType[^>]*>%s*(.-)%s*</OutputType>") do
+        output_type = vim.trim(output_type):lower()
+        if output_type == "exe" or output_type == "winexe" then
+            return true
+        end
+    end
+    return false
+end
+
+function M.find_runnable_projects(start)
+    local solution = M.find_solution(start)
+    if not solution then
+        return {}
+    end
+
+    local projects = {}
+    for _, project in ipairs(M.solution_projects(solution)) do
+        if M.is_runnable_project(project) then
+            table.insert(projects, project)
+        end
+    end
+    return projects
+end
+
+function M.preferred_windows_framework(project)
+    local content = M.read_project(project) or ""
+    for framework in content:gmatch("net%d+%.%d+%-windows[%d%.]*") do
+        return framework
+    end
+    return nil
+end
+
+function M.find_built_executable(project, configuration, framework)
+    local assembly = M.assembly_name(project)
+    local output_root = vim.fs.joinpath(vim.fs.dirname(project), "bin", configuration)
+    if framework and framework ~= "" then
+        output_root = vim.fs.joinpath(output_root, framework)
+    end
+    local pattern = vim.fs.joinpath(output_root, "**", assembly .. ".exe"):gsub("\\", "/")
+    local matches = vim.fn.glob(pattern, false, true)
+    table.sort(matches)
+    return matches[1]
+end
+
 function M.find_csproj(start)
     return M.find_upward(start, function(name)
         return name:match("%.csproj$") ~= nil

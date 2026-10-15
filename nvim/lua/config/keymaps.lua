@@ -227,8 +227,12 @@ vim.api.nvim_create_autocmd("LspAttach", {
         -- Only apply these mappings to the current buffer.
         local opts = { buffer = event.buf, silent = true }
 
-        -- Go to the definition of a symbol.
-        vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+        -- C# installs a Roslyn-aware definition mapping on FileType. Keep it
+        -- intact here so the LSP attach event does not replace its source
+        -- fallback with the generic request handler.
+        if vim.bo[event.buf].filetype ~= "cs" then
+            vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+        end
 
         -- Go to implementations, useful for interface and abstract members.
         vim.keymap.set("n", "gI", vim.lsp.buf.implementation, opts)
@@ -245,7 +249,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
         }))
 
         -- Show available code actions.
-        vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, vim.tbl_extend("force", opts, {
+        vim.keymap.set("n", "<leader>ca", function()
+            require("config.code_actions").open()
+        end, vim.tbl_extend("force", opts, {
             desc = "Code: Actions / fixes",
         }))
 
@@ -403,10 +409,27 @@ local function close_terminal()
     if buf == toggle_terminal_buf then
         toggle_terminal_buf = nil
     end
-    if vim.api.nvim_win_is_valid(win) and #vim.api.nvim_list_wins() > 1 then
+    local windows = vim.api.nvim_list_wins()
+    if #windows == 1 then
+        -- If this terminal is the final window, quit Neovim after stopping its
+        -- job and deleting the buffer. This avoids leaving an empty editor
+        -- process behind when the user closes the terminal with `q`.
+        if vim.b[buf].terminal_job_id then
+            pcall(vim.fn.jobstop, vim.b[buf].terminal_job_id)
+        end
+        if vim.api.nvim_buf_is_valid(buf) then
+            vim.api.nvim_buf_delete(buf, { force = true })
+        end
+        vim.cmd("qa!")
+        return
+    end
+    if vim.api.nvim_win_is_valid(win) then
         vim.api.nvim_win_close(win, true)
     end
     if vim.api.nvim_buf_is_valid(buf) then
+        if vim.b[buf].terminal_job_id then
+            pcall(vim.fn.jobstop, vim.b[buf].terminal_job_id)
+        end
         vim.api.nvim_buf_delete(buf, { force = true })
     end
 end
@@ -433,9 +456,9 @@ vim.api.nvim_create_autocmd("TermOpen", {
     end,
 })
 
--- Keep q as the close key in quickfix and Diffview panels too.
+-- Keep q as the close key in quickfix and every Diffview window.
 vim.api.nvim_create_autocmd("FileType", {
-    pattern = { "qf", "DiffviewFiles", "DiffviewFileHistory" },
+    pattern = { "qf", "DiffviewFiles", "DiffviewFileHistory", "Diffview", "DiffviewFileHistory" },
     callback = function(args)
         local close_command = args.match == "qf" and "close" or "DiffviewClose"
         vim.keymap.set("n", "q", "<Cmd>" .. close_command .. "<CR>", {

@@ -50,7 +50,41 @@ return {
                     },
                     lualine_x = { "filetype" },
                     lualine_y = { "progress" },
-                    lualine_z = { "location" },
+                    lualine_z = {
+                        {
+                            function()
+                                local ok, lib = pcall(require, "diffview.lib")
+                                if not ok then
+                                    return ""
+                                end
+
+                                local view = lib.get_current_view()
+                                if not view or view.class.name ~= "DiffView" then
+                                    return ""
+                                end
+
+                                local files = view:get_file_list().files
+                                local total = #files
+                                local current = 0
+                                local current_path = view.cur_file and view.cur_file.path
+                                if current_path then
+                                    for index, file in ipairs(files) do
+                                        if file.path == current_path then
+                                            current = index
+                                            break
+                                        end
+                                    end
+                                end
+
+                                if current == 0 then
+                                    return string.format("%d changes", total)
+                                end
+                                return string.format("Change %d/%d", current, total)
+                            end,
+                            color = { fg = "#f9e2af", gui = "bold" },
+                        },
+                        "location",
+                    },
                 },
             }
         end,

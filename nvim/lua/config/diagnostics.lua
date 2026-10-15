@@ -122,11 +122,138 @@ vim.diagnostic.handlers.signs = {
     end,
 }
 
+-- Some language servers (notably Roslyn) report unused symbols as ordinary
+-- compiler/analyzer diagnostics instead of semantic tokens. Highlight the
+-- reported token range directly so unused names are visibly muted in C# too.
+local unused_symbol_namespace = vim.api.nvim_create_namespace("config/unused_symbols")
+local unused_diagnostic_codes = {
+    CS0168 = true, -- declared but never used
+    CS0219 = true, -- assigned but never used
+    IDE0051 = true, -- private member never used
+    IDE1006 = false, -- naming rule, not an unused symbol
+}
+
+local function is_unused_symbol_diagnostic(diagnostic)
+    local code = diagnostic.code
+    if type(code) == "table" then
+        code = code.value or code.code
+    end
+    code = tostring(code or ""):upper()
+    if unused_diagnostic_codes[code] then
+        return true
+    end
+
+    local message = tostring(diagnostic.message or ""):lower()
+    return message:find("never used", 1, true) ~= nil
+        or message:find("never read", 1, true) ~= nil
+        or message:find("unused variable", 1, true) ~= nil
+        or message:find("unused local", 1, true) ~= nil
+        or message:find("unused parameter", 1, true) ~= nil
+        or message:find("unused member", 1, true) ~= nil
+        or message:find("assigned but its value is never used", 1, true) ~= nil
+        or message:find("declared but its value is never read", 1, true) ~= nil
+end
+
+unused_diagnostic_codes.IDE0052 = true -- private member assigned but never used
+unused_diagnostic_codes.IDE0060 = true -- unused parameter
+unused_diagnostic_codes.CA1811 = true -- uncalled private code
+
+local unused_diagnostics_by_buffer = {}
+local unused_render_pending = {}
+
+local function diagnostic_range(diagnostic)
+    if diagnostic.lnum ~= nil then
+        return diagnostic.lnum, diagnostic.col or 0,
+            diagnostic.end_lnum or diagnostic.lnum, diagnostic.end_col or ((diagnostic.col or 0) + 1)
+    end
+    local range = diagnostic.range
+    if range and range.start and range["end"] then
+        return range.start.line, range.start.character,
+            range["end"].line, range["end"].character
+    end
+end
+
+local function queue_unused_symbol_highlights(bufnr, key, diagnostics)
+    if not bufnr or bufnr == 0 then return end
+    local by_key = unused_diagnostics_by_buffer[bufnr] or {}
+    unused_diagnostics_by_buffer[bufnr] = by_key
+    by_key[key] = vim.deepcopy(diagnostics or {})
+    if unused_render_pending[bufnr] then return end
+    unused_render_pending[bufnr] = true
+    vim.schedule(function()
+        unused_render_pending[bufnr] = nil
+        if not vim.api.nvim_buf_is_valid(bufnr) then return end
+        vim.api.nvim_buf_clear_namespace(bufnr, unused_symbol_namespace, 0, -1)
+        for _, source_diagnostics in pairs(unused_diagnostics_by_buffer[bufnr] or {}) do
+            for _, diagnostic in ipairs(source_diagnostics) do
+                if is_unused_symbol_diagnostic(diagnostic) then
+                    local row, col, end_row, end_col = diagnostic_range(diagnostic)
+                    if type(row) == "number" and type(col) == "number" then
+                        local message = tostring(diagnostic.message or "")
+                        local symbol = message:match("['\"]([^'\"]+)['\"]")
+                        if symbol and end_row == row then
+                            local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
+                            local from = math.max(1, col + 1)
+                            local found = line:find(symbol, from, true) or line:find(symbol, 1, true)
+                            if found then
+                                col, end_col = found - 1, found - 1 + #symbol
+                            end
+                        end
+                        end_row = end_row or row
+                        end_col = end_col or (col + 1)
+                        if end_row == row and end_col <= col then end_col = col + 1 end
+                        pcall(vim.api.nvim_buf_set_extmark, bufnr, unused_symbol_namespace, row, col, {
+                            end_row = end_row,
+                            end_col = end_col,
+                            hl_group = "ConfigUnusedSymbol",
+                            priority = 250,
+                            strict = false,
+                        })
+                    end
+                end
+            end
+        end
+    end)
+end
+
+vim.api.nvim_create_autocmd("DiagnosticChanged", {
+    group = vim.api.nvim_create_augroup("config.unused_symbol_highlights", { clear = true }),
+    callback = function(event)
+        local bufnr = event.buf
+        vim.api.nvim_buf_clear_namespace(bufnr, unused_symbol_namespace, 0, -1)
+        local diagnostics = event.data and event.data.diagnostics or vim.diagnostic.get(bufnr)
+        for _, diagnostic in ipairs(diagnostics) do
+            local start_row = diagnostic.lnum
+            local start_col = diagnostic.col
+            local end_row = diagnostic.end_lnum or start_row
+            local end_col = diagnostic.end_col
+            if is_unused_symbol_diagnostic(diagnostic)
+                and type(start_row) == "number"
+                and type(start_col) == "number"
+                and type(end_col) == "number"
+            then
+                if end_row == start_row and end_col <= start_col then
+                    end_col = start_col + 1
+                end
+                pcall(vim.api.nvim_buf_set_extmark, bufnr, unused_symbol_namespace, start_row, start_col, {
+                    end_row = end_row,
+                    end_col = end_col,
+                    hl_group = "ConfigUnusedSymbol",
+                    priority = 150,
+                    strict = false,
+                })
+            end
+        end
+    end,
+    desc = "Mute symbol ranges reported as unused by language servers",
+})
+
 local state_path = vim.fs.joinpath(vim.fn.stdpath("state"), "diagnostic-ignores.json")
 local ignored_rules = {}
 local diagnostic_signs_config = vim.deepcopy(diagnostic_signs)
 local cached_publications = {}
 local in_reapply = false
+local roslyn_raw_diagnostics = {}
 
 local function normalize_path(path)
     path = vim.fs.normalize(path or "")
@@ -135,6 +262,15 @@ local function normalize_path(path)
 end
 
 local function project_root(path)
+    if path:lower():match("%.cs$") then
+        local ok, project = pcall(require, "config.project")
+        if ok then
+            local solution = project.find_solution(vim.fs.dirname(path))
+            if solution then
+                return normalize_path(vim.fs.dirname(solution))
+            end
+        end
+    end
     local markers = {
         ".git",
         "pyproject.toml",
@@ -146,6 +282,11 @@ local function project_root(path)
         "go.mod",
         "CMakeLists.txt",
         "Makefile",
+        ".editorconfig",
+        ".slnx",
+        ".sln",
+        ".csproj",
+        "Directory.Build.props",
     }
     local root = path ~= "" and vim.fs.root(path, markers) or nil
     return normalize_path(root or (path ~= "" and vim.fs.dirname(path)) or vim.fn.getcwd())
@@ -263,6 +404,28 @@ local function allowed_in_quiet_python_profile(diagnostic, source, root)
         or message:find("invalid syntax", 1, true) ~= nil
 end
 
+local function allowed_in_quiet_csharp_profile(diagnostic, filename, root)
+    if not filename:lower():match("%.cs$") then
+        return true
+    end
+
+    local ok, csharp = pcall(require, "config.csharp_diagnostics")
+    if not ok or csharp.profile_for_root(root) ~= "quiet" then
+        return true
+    end
+
+    local code = diagnostic.code
+    if type(code) == "table" then
+        code = code.value or code.code
+    end
+    code = tostring(code or ""):upper()
+    -- Keep compiler errors even when Roslyn omits the code, plus compiler
+    -- warnings (for example CS0168 for an unused catch variable). Hide analyzer
+    -- findings, which generally use CA/IDE/SARIF codes instead.
+    return (diagnostic.severity == vim.diagnostic.severity.ERROR and code == "")
+        or code:match("^CS%d+$") ~= nil
+end
+
 local function rule_label(rule)
     local code = rule.code or ("message: " .. tostring(rule.message or "(no rule code)"))
     local scope = rule.project == "*" and "all projects" or tostring(rule.project or "unknown project")
@@ -283,8 +446,39 @@ local function matches_rule(diagnostic, source, root)
     return false
 end
 
-local function should_hide(diagnostic, source, root)
+local function should_hide(diagnostic, source, root, filename)
+    if filename:lower():match("%.cs$") then
+        local code = diagnostic.code
+        if type(code) == "table" then
+            code = code.value or code.code
+        end
+        if tostring(code or ""):upper():match("^CS%d+$") then
+            -- Compiler diagnostics are core feedback, not profile-controlled
+            -- analyzer noise. Do not let global toggles or ignored analyzer
+            -- rules hide them.
+            return false
+        end
+    end
+
     if hidden_severities[diagnostic.severity] then
+        if filename:lower():match("%.cs$") then
+            local ok, csharp = pcall(require, "config.csharp_diagnostics")
+            if ok then
+                local profile = csharp.profile_for_root(root)
+                local code = diagnostic.code
+                if type(code) == "table" then
+                    code = code.value or code.code
+                end
+                code = tostring(code or ""):upper()
+                local core_compiler_finding = code:match("^CS%d+$") ~= nil
+                    or (diagnostic.severity == vim.diagnostic.severity.ERROR and code == "")
+                if profile == "quiet" and core_compiler_finding then
+                    return matches_rule(diagnostic, source, root)
+                elseif profile == "strict" then
+                    return matches_rule(diagnostic, source, root)
+                end
+            end
+        end
         return true
     end
     return matches_rule(diagnostic, source, root)
@@ -300,13 +494,21 @@ local function filtered_diagnostics(diagnostics, client_id, uri)
         filename = ok and path or ""
     end
     local root = project_root(filename)
+    local ok_buf, bufnr = pcall(vim.uri_to_bufnr, uri)
+    if ok_buf and bufnr then
+        local cache_key = tostring(client_id or "unknown") .. "\0" .. tostring(uri)
+        queue_unused_symbol_highlights(bufnr, cache_key, diagnostics)
+    end
     local filtered = {}
 
     for _, diagnostic in ipairs(diagnostics or {}) do
         local source = diagnostic_source(diagnostic, client_id)
         local visible = vim.deepcopy(diagnostic)
         visible.severity = ide_standard_severity(visible)
-        if allowed_in_quiet_python_profile(visible, source, root) and not should_hide(visible, source, root) then
+        if allowed_in_quiet_python_profile(visible, source, root)
+            and allowed_in_quiet_csharp_profile(visible, filename, root)
+            and not should_hide(visible, source, root, filename)
+        then
             if not visible.source or visible.source == "" then
                 visible.source = source
             end
@@ -322,6 +524,10 @@ local function filtered_publish_diagnostics(err, result, ctx, config)
     end
 
     local client_id = ctx and ctx.client_id
+    if client_id then
+        local raw_key = tostring(client_id) .. "\0" .. tostring(result.uri or "")
+        roslyn_raw_diagnostics[raw_key] = vim.deepcopy(result.diagnostics)
+    end
     if not in_reapply then
         local cache_key = tostring(client_id or "unknown") .. "\0" .. tostring(result.uri or "")
         cached_publications[cache_key] = {
@@ -347,6 +553,10 @@ local function filtered_pull_diagnostics(err, result, ctx, config)
     local client_id = ctx and ctx.client_id
     local params = ctx and ctx.params or {}
     local uri = params.textDocument and params.textDocument.uri or ""
+    if client_id then
+        local raw_key = tostring(client_id) .. "\0" .. tostring(uri)
+        roslyn_raw_diagnostics[raw_key] = vim.deepcopy(result.items)
+    end
     if not in_reapply then
         local cache_key = tostring(client_id or "unknown") .. "\0pull\0" .. tostring(uri)
         cached_publications[cache_key] = {
@@ -372,6 +582,55 @@ if original_pull_diagnostics then
     vim.lsp.handlers["textDocument/diagnostic"] = filtered_pull_diagnostics
 end
 
+local function refresh_roslyn_diagnostics(bufnr)
+    for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+        if client.name:lower():find("roslyn", 1, true) then
+            local params = {
+                textDocument = vim.lsp.util.make_text_document_params(bufnr),
+            }
+            pcall(client.request, client, "textDocument/diagnostic", params, nil, bufnr)
+        end
+    end
+end
+
+-- Roslyn's diagnostics can become stale while editing. Debounce a fresh pull
+-- during edits, and also refresh on attach and when leaving insert mode.
+local roslyn_refresh_group = vim.api.nvim_create_augroup("config.roslyn_diagnostics", { clear = true })
+local refresh_timers = {}
+local function queue_roslyn_refresh(bufnr, delay)
+    if refresh_timers[bufnr] then
+        refresh_timers[bufnr]:stop()
+        refresh_timers[bufnr]:close()
+    end
+    refresh_timers[bufnr] = vim.defer_fn(function()
+        refresh_timers[bufnr] = nil
+        if vim.api.nvim_buf_is_valid(bufnr) then
+            refresh_roslyn_diagnostics(bufnr)
+        end
+    end, delay)
+end
+
+vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave" }, {
+    group = roslyn_refresh_group,
+    callback = function(event)
+        if vim.bo[event.buf].filetype == "cs" then
+            queue_roslyn_refresh(event.buf, event.event == "InsertLeave" and 0 or 350)
+        end
+    end,
+    desc = "Refresh Roslyn diagnostics after C# edits",
+})
+
+vim.api.nvim_create_autocmd("LspAttach", {
+    group = roslyn_refresh_group,
+    callback = function(event)
+        local client = vim.lsp.get_client_by_id(event.data.client_id)
+        if client and client.name:lower():find("roslyn", 1, true) then
+            queue_roslyn_refresh(event.buf, 100)
+        end
+    end,
+    desc = "Request diagnostics when Roslyn attaches",
+})
+
 local function reapply_cached_publications()
     in_reapply = true
     for _, publication in pairs(cached_publications) do
@@ -394,6 +653,14 @@ local function reapply_cached_publications()
         end
     end
     in_reapply = false
+end
+
+function M.refresh_cached_publications()
+    reapply_cached_publications()
+end
+
+function M.refresh_roslyn(bufnr)
+    refresh_roslyn_diagnostics(bufnr)
 end
 
 local function select_item(items, opts, on_choice)
@@ -537,8 +804,29 @@ end
 
 function M.select_profile(bufnr)
     bufnr = bufnr or vim.api.nvim_get_current_buf()
+    local attached_clients = vim.lsp.get_clients({ bufnr = bufnr })
+    for _, client in ipairs(attached_clients) do
+        if client.name:lower():find("roslyn", 1, true) then
+            return require("config.csharp_diagnostics").select_profile(bufnr)
+        end
+    end
+    local buffer_name = vim.api.nvim_buf_get_name(bufnr)
+    if buffer_name:lower():match("%.cs$") then
+        return require("config.csharp_diagnostics").select_profile(bufnr)
+    end
     if vim.bo[bufnr].filetype == "python" then
         return require("config.python").select_diagnostics_profile(bufnr)
+    end
+    if vim.bo[bufnr].filetype == "cs" then
+        return require("config.csharp_diagnostics").select_profile(bufnr)
+    end
+    if vim.bo[bufnr].filetype == "oil" then
+        local ok, directory = pcall(function()
+            return require("oil").get_current_dir()
+        end)
+        if ok and directory and require("config.project").find_csproj(directory) then
+            return require("config.csharp_diagnostics").select_profile_for_path(directory, bufnr)
+        end
     end
 
     local filetype = vim.bo[bufnr].filetype
@@ -547,6 +835,7 @@ function M.select_profile(bufnr)
         typescriptreact = "TypeScript rules come from tsconfig.json; extra lint rules belong in the project's ESLint config.",
         javascript = "JavaScript lint rules come from the project's ESLint config.",
         javascriptreact = "JavaScript lint rules come from the project's ESLint config.",
+        cs = "Choose a C# diagnostics profile; it is saved in the project's .editorconfig and applied by Roslyn and the build.",
         c = "C diagnostics come from compiler flags; extra analysis rules belong in .clang-tidy or .clangd.",
         cpp = "C++ diagnostics come from compiler flags; extra analysis rules belong in .clang-tidy or .clangd.",
         lua = "Lua diagnostics are configured in the LuaLS settings in your Neovim config.",
@@ -559,6 +848,81 @@ function M.select_profile(bufnr)
     )
 end
 
+function M.csharp_status(bufnr)
+    bufnr = bufnr or vim.api.nvim_get_current_buf()
+    local clients, names = vim.lsp.get_clients({ bufnr = bufnr }), {}
+    for _, client in ipairs(clients) do
+        if client.name:lower():find("roslyn", 1, true) then
+            names[#names + 1] = client.name .. " (" .. tostring(client.id) .. ")"
+        end
+    end
+    local diagnostics = vim.diagnostic.get(bufnr)
+    local uri = vim.uri_from_bufnr(bufnr)
+    local raw_by_client = {}
+    for _, client in ipairs(clients) do
+        if client.name:lower():find("roslyn", 1, true) then
+            local key = tostring(client.id) .. "\0" .. uri
+            raw_by_client[#raw_by_client + 1] = {
+                name = client.name .. " (" .. tostring(client.id) .. ")",
+                items = roslyn_raw_diagnostics[key] or {},
+            }
+        end
+    end
+    local codes = {}
+    for _, diagnostic in ipairs(diagnostics) do
+        local code = diagnostic.code
+        if type(code) == "table" then
+            code = code.value or code.code
+        end
+        codes[#codes + 1] = tostring(code or "?") .. ": " .. diagnostic.message:gsub("%s+", " ")
+    end
+    local catch_location
+    for line_number, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
+        if line:find("Excption", 1, true) then
+            catch_location = ("line %d: %s"):format(line_number, vim.trim(line))
+            break
+        end
+    end
+    local raw_codes = {}
+    for _, publication in ipairs(raw_by_client) do
+        for _, diagnostic in ipairs(publication.items) do
+            local code = diagnostic.code
+            if type(code) == "table" then code = code.value or code.code end
+            code = tostring(code or "?")
+            local source = tostring(diagnostic.source or "")
+            raw_codes[#raw_codes + 1] = ("%s %s: %s"):format(
+                code, source, tostring(diagnostic.message or ""):gsub("%s+", " ")
+            )
+        end
+    end
+    vim.notify(
+        ("Buffer: %s\nFiletype: %s\nModified: %s\nRoslyn: %s\nVisible diagnostics: %d\n%s\n%s"):format(
+            vim.api.nvim_buf_get_name(bufnr),
+            vim.bo[bufnr].filetype,
+            tostring(vim.bo[bufnr].modified),
+            #names > 0 and table.concat(names, ", ") or "not attached",
+            #diagnostics,
+            catch_location or "No 'Excption' text in the current buffer",
+            #codes > 0 and table.concat(codes, "\n") or "No diagnostics currently published"
+        ),
+        vim.log.levels.INFO,
+        { title = "C# diagnostic status" }
+    )
+
+    vim.notify(
+        ("Roslyn published diagnostics: %d\n%s"):format(
+            #raw_codes,
+            #raw_codes > 0 and table.concat(raw_codes, "\n") or "No Roslyn diagnostics captured yet; edit the buffer, then check again."
+        ),
+        vim.log.levels.INFO,
+        { title = "C# raw Roslyn diagnostics" }
+    )
+end
+
+vim.api.nvim_create_user_command("CSharpDiagnosticsStatus", function()
+    M.csharp_status()
+end, { desc = "Show C# LSP attachment and diagnostics for the current buffer" })
+
 vim.api.nvim_create_user_command("DiagnosticsProfile", function(command)
     local bufnr = vim.api.nvim_get_current_buf()
     if command.args == "" then
@@ -567,6 +931,17 @@ vim.api.nvim_create_user_command("DiagnosticsProfile", function(command)
     end
     if vim.bo[bufnr].filetype == "python" then
         require("config.python").apply_diagnostics_profile_for_buffer(bufnr, command.args:lower())
+    elseif vim.bo[bufnr].filetype == "cs" then
+        require("config.csharp_diagnostics").apply_profile_for_buffer(bufnr, command.args:lower())
+    elseif vim.bo[bufnr].filetype == "oil" then
+        local ok, directory = pcall(function()
+            return require("oil").get_current_dir()
+        end)
+        if ok and directory and require("config.project").find_csproj(directory) then
+            require("config.csharp_diagnostics").apply_profile_for_path(directory, command.args:lower(), bufnr)
+        else
+            M.select_profile(bufnr)
+        end
     else
         M.select_profile(bufnr)
     end

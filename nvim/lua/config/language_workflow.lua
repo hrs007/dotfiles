@@ -78,7 +78,12 @@ local function run_dotnet_project(project, key, start)
     end
     if focus_if_running(key) then return end
     vim.cmd("wall")
-    start_terminal(key, { "dotnet", "run", "--project", project, "--configuration", "Release" }, start)
+    local command = { "dotnet", "run", "--project", project, "--configuration", "Release" }
+    local framework = Project.preferred_windows_framework(project)
+    if framework then
+        vim.list_extend(command, { "--framework", framework })
+    end
+    start_terminal(key, command, start)
 end
 
 local function build_csharp(start, key, build_solution)
@@ -133,7 +138,32 @@ local function run_csharp(start, key)
     end
 
     if Project.is_sdk_project(project) then
-        run_dotnet_project(project, key, vim.fs.dirname(project))
+        if Project.is_runnable_project(project) then
+            run_dotnet_project(project, key .. ":" .. project, vim.fs.dirname(project))
+            return
+        end
+
+        local runnable_projects = Project.find_runnable_projects(start)
+        if #runnable_projects == 0 then
+            notify("The current C# project is a library. No runnable app project was found in its solution.", vim.log.levels.ERROR)
+            return
+        end
+
+        local function run_selected(selected)
+            if selected then
+                run_dotnet_project(selected, key .. ":" .. selected, vim.fs.dirname(selected))
+            end
+        end
+        if #runnable_projects == 1 then
+            run_selected(runnable_projects[1])
+        else
+            vim.ui.select(runnable_projects, {
+                prompt = "Run C# app project",
+                format_item = function(candidate)
+                    return vim.fn.fnamemodify(candidate, ":~:.")
+                end,
+            }, run_selected)
+        end
         return
     end
 

@@ -10,7 +10,10 @@ return {
 
         opts = {
             -- Display files and directories using icons.
-            default_file_explorer = true,
+            -- Do not auto-convert the startup directory into oil:// before
+            -- Neovim's restart/session restore script reopens saved Oil panes.
+            -- The explicit "-" and <leader>e mappings still open Oil normally.
+            default_file_explorer = false,
 
             -- Show hidden files.
             view_options = {
@@ -33,6 +36,87 @@ return {
 
         config = function(_, opts)
             require("oil").setup(opts)
+            local transfer = require("config.oil_transfer")
+            local function cycle_from_oil(direction)
+                local buffers = {}
+                for _, info in ipairs(vim.fn.getbufinfo({ buflisted = 1 })) do
+                    if info.loaded and vim.api.nvim_buf_is_valid(info.bufnr) then
+                        buffers[#buffers + 1] = info.bufnr
+                    end
+                end
+                table.sort(buffers)
+                if #buffers == 0 then return end
+
+                local base
+                local ok, original = pcall(vim.api.nvim_win_get_var, 0, "oil_original_buffer")
+                if ok then base = original end
+                local index
+                for i, bufnr in ipairs(buffers) do
+                    if bufnr == base then index = i; break end
+                end
+                if not index then
+                    local alternate = vim.fn.bufnr("#")
+                    for i, bufnr in ipairs(buffers) do
+                        if bufnr == alternate then index = i; break end
+                    end
+                end
+                if not index then index = direction > 0 and 0 or (#buffers + 1) end
+                local target = ((index - 1 + direction) % #buffers) + 1
+                if #buffers == 1 and buffers[target] == vim.api.nvim_get_current_buf() then
+                    vim.notify("No other listed buffers to switch to.", vim.log.levels.INFO)
+                    return
+                end
+                vim.api.nvim_set_current_buf(buffers[target])
+            end
+            local function set_transfer_keymaps(bufnr)
+                if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].filetype ~= "oil" then return end
+                vim.keymap.set({ "n", "x" }, "y", transfer.yank, {
+                    buffer = bufnr,
+                    desc = "Yank file paths for transfer",
+                })
+                vim.keymap.set("n", "yy", transfer.yank, {
+                    buffer = bufnr,
+                    desc = "Yank file paths for transfer",
+                })
+                vim.keymap.set({ "n", "x" }, "Y", transfer.yank, {
+                    buffer = bufnr,
+                    desc = "Yank file paths for transfer",
+                })
+                vim.keymap.set("n", "p", transfer.paste, {
+                    buffer = bufnr,
+                    desc = "Copy yanked files into this directory",
+                })
+                vim.keymap.set("n", "P", transfer.paste, {
+                    buffer = bufnr,
+                    desc = "Copy yanked files into this directory",
+                })
+                vim.keymap.set("n", "<S-h>", function() cycle_from_oil(-1) end, {
+                    buffer = bufnr,
+                    desc = "Buffer: Previous from Oil",
+                })
+                vim.keymap.set("n", "<S-l>", function() cycle_from_oil(1) end, {
+                    buffer = bufnr,
+                    desc = "Buffer: Next from Oil",
+                })
+            end
+            local group = vim.api.nvim_create_augroup("config.oil_transfer_keymaps", { clear = true })
+            vim.api.nvim_create_autocmd("User", {
+                group = group,
+                pattern = "OilEnter",
+                callback = function(event)
+                    set_transfer_keymaps(event.data and event.data.buf or vim.api.nvim_get_current_buf())
+                end,
+            })
+            vim.api.nvim_create_autocmd("FileType", {
+                group = group,
+                pattern = "oil",
+                callback = function(event)
+                    set_transfer_keymaps(event.buf)
+                end,
+            })
+            for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+                set_transfer_keymaps(bufnr)
+            end
 
             -- Open Oil in the current directory.
             vim.keymap.set("n", "-", "<CMD>Oil<CR>", {

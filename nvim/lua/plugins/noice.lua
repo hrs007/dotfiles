@@ -32,7 +32,10 @@ return {
             },
             lsp = {
                 progress = {
-                    enabled = true,
+                    -- Hide language-server progress popups such as "Finding
+                    -- references" across all languages. LSP requests and
+                    -- their results continue to work normally.
+                    enabled = false,
                 },
                 hover = {
                     enabled = true,
@@ -71,9 +74,17 @@ return {
             end
 
             require("noice").setup(opts)
+
+            vim.api.nvim_create_user_command("NotificationHistory", function()
+                vim.cmd("Notifications")
+            end, { desc = "Show popup notification history" })
+            vim.api.nvim_create_user_command("MessageHistory", function()
+                vim.cmd("Noice all")
+            end, { desc = "Show all captured Neovim messages" })
         end,
         keys = {
-            { "<leader>nh", "<Cmd>Noice history<CR>", desc = "UI: Message history" },
+            { "<leader>nh", "<Cmd>NotificationHistory<CR>", desc = "UI: Notification history" },
+            { "<leader>nm", "<Cmd>MessageHistory<CR>", desc = "UI: Message history" },
             { "<leader>nd", "<Cmd>Noice dismiss<CR>", desc = "UI: Dismiss notifications" },
         },
     },

@@ -45,11 +45,34 @@ return {
 
             local installed = ts.get_installed()
             local to_install = vim.tbl_filter(function(lang)
-                return not vim.tbl_contains(installed, lang)
+                if vim.tbl_contains(installed, lang) then
+                    return false
+                end
+                -- Neovim ships a small set of parsers itself. Do not try to
+                -- rebuild those on every startup just because they are outside
+                -- nvim-treesitter's install directory.
+                return #vim.api.nvim_get_runtime_file("parser/" .. lang .. ".*", true) == 0
             end, ensure_installed)
 
             if #to_install > 0 then
-                ts.install(to_install)
+                -- On Windows, Vim's executable() expects the .exe suffix for
+                -- MSVC's compiler (cl alone is not detected reliably).
+                local has_compiler = vim.iter({ "cl.exe", "clang", "gcc" }):any(function(compiler)
+                    return vim.fn.executable(compiler) == 1
+                end)
+                local has_requirements = vim.fn.executable("tree-sitter") == 1
+                    and has_compiler
+                    and vim.fn.executable("tar") == 1
+                    and vim.fn.executable("curl") == 1
+
+                if has_requirements then
+                    ts.install(to_install)
+                else
+                    vim.notify(
+                        "Tree-sitter parsers are missing. Install tree-sitter-cli 0.26.1+ and a C compiler, then restart Neovim.",
+                        vim.log.levels.WARN
+                    )
+                end
             end
 
             -- Close matching HTML/JSX tags and rename their pairs together.

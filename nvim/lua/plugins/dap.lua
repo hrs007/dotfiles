@@ -18,10 +18,140 @@ return {
         config = function()
             local dap = require("dap")
             local dapui = require("dapui")
+            local Project = require("config.project")
 
             local map = vim.keymap.set
             local is_windows = vim.fn.has("win32") == 1
             local mason = vim.fn.stdpath("data") .. "/mason"
+
+            local function find_coreclr_debugger()
+                local debugger = vim.fn.exepath("netcoredbg")
+                if debugger ~= "" then
+                    return debugger
+                end
+
+                -- Reuse Microsoft's debugger when the C# tooling installed by
+                -- VS Code is present; otherwise allow a standalone netcoredbg.
+                local extension_roots = {
+                    vim.fn.expand("~/.vscode/extensions"),
+                    vim.fn.expand("~/.vscode-insiders/extensions"),
+                }
+                for _, root in ipairs(extension_roots) do
+                    if vim.fn.isdirectory(root) == 1 then
+                        for _, extension in ipairs(vim.fn.readdir(root)) do
+                            local candidate = vim.fs.joinpath(
+                                root,
+                                extension,
+                                "debugAdapters",
+                                "vsdbg",
+                                "bin",
+                                "vsdbg.exe"
+                            )
+                            if vim.fn.filereadable(candidate) == 1 then
+                                return candidate
+                            end
+                        end
+                    end
+                end
+            end
+
+            local coreclr_debugger = is_windows and find_coreclr_debugger() or nil
+            if coreclr_debugger then
+                dap.adapters.coreclr = {
+                    type = "executable",
+                    command = coreclr_debugger,
+                    args = { "--interpreter=vscode" },
+                }
+                dap.configurations.cs = {
+                    {
+                        name = "Launch .NET app",
+                        type = "coreclr",
+                        request = "launch",
+                        program = function()
+                            return vim.fn.input("Path to .NET executable: ", vim.fn.getcwd() .. "\\bin\\Debug\\", "file")
+                        end,
+                        cwd = "${workspaceFolder}",
+                        stopAtEntry = false,
+                    },
+                }
+            end
+
+            local function debug_maui_windows()
+                if not coreclr_debugger then
+                    vim.notify(
+                        "No .NET debugger found. Install netcoredbg or the VS Code C# debugging tools.",
+                        vim.log.levels.ERROR
+                    )
+                    return
+                end
+
+                local start = Project.current_dir()
+                local current_project = Project.find_csproj(start)
+                local candidates = {}
+                if current_project and Project.is_runnable_project(current_project) then
+                    candidates = { current_project }
+                else
+                    candidates = Project.find_runnable_projects(start)
+                end
+
+                if #candidates == 0 then
+                    vim.notify("No runnable app project was found in this solution.", vim.log.levels.ERROR)
+                    return
+                end
+
+                local function launch(project)
+                    if not project then return end
+                    local framework = Project.preferred_windows_framework(project)
+                    vim.cmd("wall")
+                    local command = { "dotnet", "build", project, "--configuration", "Debug" }
+                    if framework then
+                        vim.list_extend(command, { "--framework", framework })
+                    end
+                    vim.notify("Building the MAUI app in Debug configuration…", vim.log.levels.INFO)
+                    vim.system(command, { cwd = vim.fs.dirname(project), text = true }, function(result)
+                        vim.schedule(function()
+                            if result.code ~= 0 then
+                                local output = (result.stderr or "") .. "\n" .. (result.stdout or "")
+                                local lines = vim.split(vim.trim(output), "\n")
+                                local summary = table.concat(vim.list_slice(lines, math.max(1, #lines - 9)), "\n")
+                                vim.notify("MAUI Debug build failed:\n" .. summary, vim.log.levels.ERROR, { title = "C# Debug" })
+                                return
+                            end
+
+                            local executable = Project.find_built_executable(project, "Debug", framework)
+                            if not executable or vim.fn.filereadable(executable) ~= 1 then
+                                vim.notify("Build succeeded, but the Windows app executable was not found.", vim.log.levels.ERROR)
+                                return
+                            end
+
+                            dap.run({
+                                name = "Debug MAUI Windows app",
+                                type = "coreclr",
+                                request = "launch",
+                                program = executable,
+                                cwd = vim.fs.dirname(project),
+                                stopAtEntry = false,
+                                justMyCode = false,
+                            })
+                        end)
+                    end)
+                end
+
+                if #candidates == 1 then
+                    launch(candidates[1])
+                else
+                    vim.ui.select(candidates, {
+                        prompt = "Choose app to debug",
+                        format_item = function(project)
+                            return vim.fn.fnamemodify(project, ":~:.")
+                        end,
+                    }, launch)
+                end
+            end
+
+            map("n", "<leader>DM", debug_maui_windows, {
+                desc = "Debug: Launch MAUI Windows app",
+            })
 
             -- ==========================================
             -- Debug UI
