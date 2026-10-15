@@ -49,7 +49,6 @@ return {
 
                 -- Preview changes.
                 map("<leader>hp", gs.preview_hunk, "Preview Git change")
-                map("<leader>hi", gs.preview_hunk_inline, "Preview Git change inline")
 
                 -- Stage/unstage a hunk, or stage every change in this buffer.
                 -- stage_hunk toggles staged hunks back out of the index too.

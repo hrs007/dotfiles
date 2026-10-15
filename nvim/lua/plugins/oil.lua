@@ -46,6 +46,28 @@ return {
 
         config = function(_, opts)
             require("oil").setup(opts)
+
+            -- A directory passed on the command line should open in Oil.
+            -- Bare `nvim` startup is handled separately by the dashboard.
+            vim.api.nvim_create_autocmd("VimEnter", {
+                group = vim.api.nvim_create_augroup("config.oil_startup", { clear = true }),
+                once = true,
+                callback = function()
+                    local args = vim.fn.argv()
+                    if #args ~= 1 then return end
+
+                    local target = vim.fn.fnamemodify(args[1], ":p")
+                    if vim.fn.isdirectory(target) == 1 then
+                        -- Run after Neovim finishes opening startup arguments;
+                        -- otherwise its initial empty buffer can replace Oil.
+                        vim.schedule(function()
+                            vim.cmd("Oil " .. vim.fn.fnameescape(target))
+                        end)
+                    end
+                end,
+                desc = "Open command-line directories in Oil",
+            })
+
             local transfer = require("config.oil_transfer")
             local function cycle_from_oil(direction)
                 local buffers = {}

@@ -24,6 +24,16 @@ maximized = true\
 ' "$CONFIG"
 fi
 
+# Keep Finder-opened files in the current editor instead of opening another
+# Neovide tab alongside the startup dashboard.
+if grep -q '^tabs[[:space:]]*=' "$CONFIG"; then
+  sed -i '' 's/^tabs[[:space:]]*=.*/tabs = false/' "$CONFIG"
+else
+  sed -i '' '1i\
+tabs = false\
+' "$CONFIG"
+fi
+
 # Prefer the Nerd Font already installed with this setup for a closer match to
 # the terminal, while preserving any existing font choice.
 if ! grep -q '^\[font\]' "$CONFIG"; then

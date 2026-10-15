@@ -2,6 +2,11 @@
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
+-- Use Oil for directory browsing instead of Neovim's built-in netrw.
+-- These must be set before startup arguments (such as `nvim .`) are handled.
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
 -- Load general editor settings from options.lua
 require("config.options")
 require("config.dashboard_startup")

@@ -1,6 +1,9 @@
--- Neovide may deliver Finder's open-document event shortly after Neovim has
--- entered the UI. Delay the empty-start dashboard so the file gets priority.
+-- Keep empty-start dashboard routing separate from buffers opened at startup.
 local startup_group = vim.api.nvim_create_augroup("DashboardStartup", { clear = true })
+
+-- Suppress Neovim's built-in welcome screen while the configured dashboard
+-- initializes, avoiding two different startup screens in sequence.
+vim.opt.shortmess:append("I")
 
 local function has_named_file_buffer()
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
@@ -17,22 +20,20 @@ local function has_named_file_buffer()
     return false
 end
 
-local function has_open_file_argument()
-    for _, argument in ipairs(vim.fn.argv()) do
-        if argument ~= "" and argument ~= "-" then
-            return true
-        end
-    end
-    return false
-end
-
 vim.api.nvim_create_autocmd("VimEnter", {
     group = startup_group,
     once = true,
     callback = function()
+        -- Neovide may deliver OS file-open requests after startup, so Neovim
+        -- cannot reliably distinguish them from an empty launch. Leave its
+        -- startup buffer alone; `:Dashboard` remains available.
+        if vim.g.neovide then
+            return
+        end
+
         vim.defer_fn(function()
             -- File arguments and stdin should never be covered by the dashboard.
-            if has_open_file_argument() or vim.g.read_from_stdin or has_named_file_buffer() then
+            if #vim.fn.argv() > 0 or vim.g.read_from_stdin or has_named_file_buffer() then
                 return
             end
 
@@ -44,7 +45,7 @@ vim.api.nvim_create_autocmd("VimEnter", {
             end
 
             vim.cmd("Dashboard")
-        end, 250)
+        end, 0)
     end,
-    desc = "Show dashboard after Neovide file-open events settle",
+    desc = "Show dashboard on empty startup when file-open events are synchronous",
 })

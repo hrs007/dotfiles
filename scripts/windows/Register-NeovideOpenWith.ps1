@@ -102,6 +102,7 @@ $configLines = @($configLines | Where-Object { $_ -notmatch '^\s*neovim-bin\s*='
 $configLines = @($configLines | Where-Object { $_ -notmatch '^\s*\[font\]\s*$' -and $_ -notmatch '^\s*(normal|size)\s*=' })
 $configLines += @(
     ('neovim-bin = "{0}"' -f $escapedNvim),
+    'tabs = false',
     '',
     '[font]',
     'normal = ["JetBrainsMonoNL NF"]',

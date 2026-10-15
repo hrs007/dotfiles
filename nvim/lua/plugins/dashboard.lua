@@ -1,9 +1,7 @@
 return {
     {
         "nvimdev/dashboard-nvim",
-        -- Load only when the dashboard is explicitly requested. Startup is
-        -- handled by config.dashboard_startup after a short file-open grace
-        -- period, so Neovide can deliver Finder's open-document event first.
+        -- The configured dashboard loads on demand through :Dashboard.
         cmd = "Dashboard",
         dependencies = {
             "nvim-tree/nvim-web-devicons",
@@ -24,15 +22,19 @@ return {
                     return
                 end
 
+                local file_win = vim.fn.bufwinid(bufnr)
                 for _, tabpage in ipairs(vim.api.nvim_list_tabpages()) do
                     for _, winid in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
                         local visible = vim.api.nvim_win_get_buf(winid)
                         if vim.bo[visible].filetype == "dashboard" then
                             vim.api.nvim_win_set_buf(winid, bufnr)
-                            vim.api.nvim_set_current_win(winid)
-                            return
+                            file_win = file_win ~= -1 and file_win or winid
                         end
                     end
+                end
+
+                if file_win and file_win ~= -1 and vim.api.nvim_win_is_valid(file_win) then
+                    vim.api.nvim_set_current_win(file_win)
                 end
             end
 
@@ -141,7 +143,7 @@ return {
                 desc = "Prefer a loaded file over the startup dashboard",
             })
 
-            vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
+            vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile", "BufEnter", "BufWinEnter" }, {
                 group = dashboard_group,
                 callback = function(event)
                     vim.schedule(function()
