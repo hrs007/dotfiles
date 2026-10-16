@@ -25,7 +25,7 @@ return {
             },
         },
         keys = {
-            { "<leader>nz", "<Cmd>ZenMode<CR>", desc = "Interface: Toggle focus mode" },
+            { "<leader>uz", "<Cmd>ZenMode<CR>", desc = "Interface: Toggle focus mode" },
         },
     },
 }

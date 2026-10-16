@@ -111,7 +111,10 @@ local function csharp_definition()
             local client = vim.lsp.get_client_by_id(context.client_id)
             local client_encoding = client and client.offset_encoding or encoding
             if #locations == 1 then
-                vim.lsp.util.jump_to_location(locations[1], client_encoding, true)
+                vim.lsp.util.show_document(locations[1], client_encoding, {
+                    focus = true,
+                    reuse_win = true,
+                })
             else
                 local items = vim.lsp.util.locations_to_items(locations, client_encoding)
                 vim.fn.setqflist({}, " ", { title = "C# definitions", items = items })

@@ -24,6 +24,7 @@ local function collect_declarations_from_lines(bufnr)
                 end_row = row - 1,
                 end_col = col + #name,
                 highlight = { row = row - 1, col = 0, end_row = row - 1, end_col = #line },
+                is_static = prefix:match("%f[%w]static%f[%W]") ~= nil,
             }
         end
     end
@@ -68,8 +69,14 @@ local function collect_declarations(bufnr)
             seen[key] = true
             local highlight_node = name_node
             local parent = name_node:parent()
+            local is_static_declaration = false
             while parent do
                 local kind = parent:type()
+                if kind == "class_declaration" or kind == "method_declaration" then
+                    local declaration_line = api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
+                    local prefix = declaration_line:sub(1, col)
+                    is_static_declaration = prefix:match("%f[%w]static%f[%W]") ~= nil
+                end
                 if kind == "method_declaration" or kind == "class_declaration"
                     or kind == "struct_declaration" or kind == "interface_declaration"
                     or kind == "enum_declaration" or kind == "record_declaration"
@@ -94,6 +101,7 @@ local function collect_declarations(bufnr)
                     end_row = highlight_end_row,
                     end_col = highlight_end_col,
                 },
+                is_static = is_static_declaration,
             }
         end
     end
@@ -127,6 +135,10 @@ local function paired_xaml_references(bufnr, symbol)
         end
     end
     return count
+end
+
+function M.has_paired_xaml_reference(bufnr, symbol)
+    return paired_xaml_references(bufnr, symbol) > 0
 end
 
 local function scan(bufnr)
@@ -187,7 +199,7 @@ local function scan(bufnr)
                             virt_lines_above = true,
                             priority = 250,
                         }
-                        if result.count == 0 then
+                        if result.count == 0 and not item.is_static then
                             mark.hl_group = "ConfigUnusedSymbol"
                             local range = item.highlight or {
                                 row = item.row,

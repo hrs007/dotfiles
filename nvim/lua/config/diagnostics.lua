@@ -173,8 +173,54 @@ local function diagnostic_range(diagnostic)
     end
 end
 
+local function is_static_declaration_diagnostic(bufnr, diagnostic)
+    if vim.bo[bufnr].filetype ~= "cs" then return false end
+    local row, col, end_row, end_col = diagnostic_range(diagnostic)
+    if type(row) ~= "number" or row ~= end_row then return false end
+    local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
+    local modifiers, name = line:match("^%s*(.-)%f[%w]class%s+([_%a][_%w]*)")
+    if not name then
+        modifiers, name = line:match("^%s*(.-)([_%a][_%w]*)%s*%(")
+    end
+    if not name or not modifiers:match("%f[%w]static%f[%W]") then return false end
+    local name_col = (line:find(name, 1, true) or 1) - 1
+    local diagnostic_end = end_col or (col + 1)
+    local message_names_symbol = tostring(diagnostic.message or ""):lower():find(name:lower(), 1, true) ~= nil
+    return message_names_symbol or (col <= name_col and diagnostic_end >= name_col + #name)
+end
+
+local function is_xaml_referenced_csharp_method(bufnr, diagnostic)
+    if vim.bo[bufnr].filetype ~= "cs" then return false end
+    local filename = vim.api.nvim_buf_get_name(bufnr):lower()
+    if not filename:match("%.xaml%.cs$") then return false end
+
+    local code = diagnostic.code
+    if type(code) == "table" then code = code.value or code.code end
+    code = tostring(code or ""):upper()
+    local message = tostring(diagnostic.message or ""):lower()
+    if code ~= "IDE0051" and code ~= "CA1811"
+        and not message:find("private member", 1, true)
+        and not message:find("uncalled private code", 1, true)
+    then
+        return false
+    end
+
+    local row = diagnostic_range(diagnostic)
+    if type(row) ~= "number" then return false end
+    local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
+    local _, name = line:match("^%s*(.-)([_%a][_%w]*)%s*%(")
+    if not name then return false end
+
+    local ok, csharp_unused = pcall(require, "config.csharp_unused")
+    return ok and csharp_unused.has_paired_xaml_reference(bufnr, name) or false
+end
+
 local function queue_unused_symbol_highlights(bufnr, key, diagnostics)
     if not bufnr or bufnr == 0 then return end
+    if vim.bo[bufnr].filetype == "xml" or vim.bo[bufnr].filetype == "xaml" then
+        vim.api.nvim_buf_clear_namespace(bufnr, unused_symbol_namespace, 0, -1)
+        return
+    end
     local by_key = unused_diagnostics_by_buffer[bufnr] or {}
     unused_diagnostics_by_buffer[bufnr] = by_key
     by_key[key] = vim.deepcopy(diagnostics or {})
@@ -186,7 +232,9 @@ local function queue_unused_symbol_highlights(bufnr, key, diagnostics)
         vim.api.nvim_buf_clear_namespace(bufnr, unused_symbol_namespace, 0, -1)
         for _, source_diagnostics in pairs(unused_diagnostics_by_buffer[bufnr] or {}) do
             for _, diagnostic in ipairs(source_diagnostics) do
-                if is_unused_symbol_diagnostic(diagnostic) then
+                if is_unused_symbol_diagnostic(diagnostic)
+                    and not is_static_declaration_diagnostic(bufnr, diagnostic)
+                    and not is_xaml_referenced_csharp_method(bufnr, diagnostic) then
                     local row, col, end_row, end_col = diagnostic_range(diagnostic)
                     if type(row) == "number" and type(col) == "number" then
                         local message = tostring(diagnostic.message or "")
@@ -221,6 +269,7 @@ vim.api.nvim_create_autocmd("DiagnosticChanged", {
     callback = function(event)
         local bufnr = event.buf
         vim.api.nvim_buf_clear_namespace(bufnr, unused_symbol_namespace, 0, -1)
+        if vim.bo[bufnr].filetype == "xml" or vim.bo[bufnr].filetype == "xaml" then return end
         local diagnostics = event.data and event.data.diagnostics or vim.diagnostic.get(bufnr)
         for _, diagnostic in ipairs(diagnostics) do
             local start_row = diagnostic.lnum
@@ -228,6 +277,8 @@ vim.api.nvim_create_autocmd("DiagnosticChanged", {
             local end_row = diagnostic.end_lnum or start_row
             local end_col = diagnostic.end_col
             if is_unused_symbol_diagnostic(diagnostic)
+                and not is_static_declaration_diagnostic(bufnr, diagnostic)
+                and not is_xaml_referenced_csharp_method(bufnr, diagnostic)
                 and type(start_row) == "number"
                 and type(start_col) == "number"
                 and type(end_col) == "number"

@@ -95,9 +95,9 @@ return {
             end, { desc = "Show all captured Neovim messages" })
         end,
         keys = {
-            { "<leader>nh", "<Cmd>NotificationHistory<CR>", desc = "UI: Notification history" },
-            { "<leader>nm", "<Cmd>MessageHistory<CR>", desc = "UI: Message history" },
-            { "<leader>nd", "<Cmd>Noice dismiss<CR>", desc = "UI: Dismiss notifications" },
+            { "<leader>uh", "<Cmd>NotificationHistory<CR>", desc = "Notifications: History" },
+            { "<leader>um", "<Cmd>MessageHistory<CR>", desc = "Messages: History" },
+            { "<leader>ud", "<Cmd>Noice dismiss<CR>", desc = "Notifications: Dismiss" },
         },
     },
 }

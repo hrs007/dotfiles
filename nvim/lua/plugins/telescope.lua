@@ -92,6 +92,36 @@ pickers = {
                 desc = "Search project text",
             })
 
+            -- Search recursively from the current project's root, even when
+            -- Neovim's working directory is a nested folder or another path.
+            local project_markers = {
+                ".git",
+                "package.json",
+                "pyproject.toml",
+                "Cargo.toml",
+                "go.mod",
+                "pom.xml",
+                "build.gradle",
+                "CMakeLists.txt",
+                "Directory.Build.props",
+                "Directory.Build.targets",
+            }
+            vim.keymap.set("n", "<leader>fw", function()
+                local project = require("config.project")
+                local start = project.current_dir()
+                local root = vim.fs.root(start, project_markers)
+                if not root and vim.bo.filetype == "cs" then
+                    local solution = project.find_solution(start)
+                    if solution then root = vim.fs.dirname(solution) end
+                end
+                builtin.grep_string({
+                    search = vim.fn.expand("<cword>"),
+                    cwd = root or vim.fn.getcwd(),
+                })
+            end, {
+                desc = "Search word under cursor",
+            })
+
             -- Switch quickly among currently open files, most recently used first.
             vim.keymap.set("n", "<leader>fb", function()
                 builtin.buffers({ sort_mru = true, ignore_current_buffer = true })

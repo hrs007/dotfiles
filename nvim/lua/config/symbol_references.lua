@@ -19,6 +19,8 @@ local symbol_kinds = {
 }
 
 local handled_filetypes = {
+    xml = true, -- Includes XAML; XML symbols are not reliably reference-counted.
+    xaml = true,
     python = true,
     c = true,
     cpp = true,

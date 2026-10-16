@@ -15,6 +15,12 @@ return {
             -- The explicit "-" and <leader>e mappings still open Oil normally.
             default_file_explorer = false,
 
+            -- Keep Oil buffers hidden from the regular buffer list while
+            -- retaining their contents when switching to another buffer.
+            buf_options = {
+                buflisted = false,
+                bufhidden = "hide",
+            },
             -- Show hidden files.
             view_options = {
                 show_hidden = true,
@@ -47,8 +53,9 @@ return {
         config = function(_, opts)
             require("oil").setup(opts)
 
-            -- A directory passed on the command line should open in Oil.
-            -- Bare `nvim` startup is handled separately by the dashboard.
+            -- Open Oil for an explicit directory argument such as `nvim .`.
+            -- Do not reopen Oil merely because a restored buffer has an
+            -- oil:// name; restart/session restoration should keep its state.
             vim.api.nvim_create_autocmd("VimEnter", {
                 group = vim.api.nvim_create_augroup("config.oil_startup", { clear = true }),
                 once = true,
@@ -57,51 +64,38 @@ return {
                     if #args ~= 1 then return end
 
                     local target = vim.fn.fnamemodify(args[1], ":p")
-                    if vim.fn.isdirectory(target) == 1 then
-                        -- Run after Neovim finishes opening startup arguments;
-                        -- otherwise its initial empty buffer can replace Oil.
-                        vim.schedule(function()
-                            vim.cmd("Oil " .. vim.fn.fnameescape(target))
-                        end)
-                    end
+                    if vim.fn.isdirectory(target) ~= 1 then return end
+
+                    local startup_buf = vim.api.nvim_get_current_buf()
+                    vim.schedule(function()
+                        vim.cmd("Oil " .. vim.fn.fnameescape(target))
+
+                        -- Directory takeover is disabled, so remove Neovim's
+                        -- original directory argument buffer after Oil opens.
+                        if vim.api.nvim_buf_is_valid(startup_buf)
+                            and startup_buf ~= vim.api.nvim_get_current_buf()
+                            and vim.fn.bufwinid(startup_buf) == -1
+                        then
+                            local name = vim.api.nvim_buf_get_name(startup_buf)
+                            if name ~= "" and vim.fn.isdirectory(name) == 1
+                                and vim.bo[startup_buf].filetype ~= "oil"
+                            then
+                                pcall(vim.api.nvim_buf_delete, startup_buf, { force = true })
+                            end
+                        end
+                    end)
                 end,
-                desc = "Open command-line directories in Oil",
+                desc = "Open explicit command-line directories in Oil",
             })
 
             local transfer = require("config.oil_transfer")
-            local function cycle_from_oil(direction)
-                local buffers = {}
-                for _, info in ipairs(vim.fn.getbufinfo({ buflisted = 1 })) do
-                    if info.loaded and vim.api.nvim_buf_is_valid(info.bufnr) then
-                        buffers[#buffers + 1] = info.bufnr
-                    end
-                end
-                table.sort(buffers)
-                if #buffers == 0 then return end
-
-                local base
-                local ok, original = pcall(vim.api.nvim_win_get_var, 0, "oil_original_buffer")
-                if ok then base = original end
-                local index
-                for i, bufnr in ipairs(buffers) do
-                    if bufnr == base then index = i; break end
-                end
-                if not index then
-                    local alternate = vim.fn.bufnr("#")
-                    for i, bufnr in ipairs(buffers) do
-                        if bufnr == alternate then index = i; break end
-                    end
-                end
-                if not index then index = direction > 0 and 0 or (#buffers + 1) end
-                local target = ((index - 1 + direction) % #buffers) + 1
-                if #buffers == 1 and buffers[target] == vim.api.nvim_get_current_buf() then
-                    vim.notify("No other listed buffers to switch to.", vim.log.levels.INFO)
-                    return
-                end
-                vim.api.nvim_set_current_buf(buffers[target])
+            local function preserve_oil_buffer(bufnr)
+                if not vim.api.nvim_buf_is_valid(bufnr) then return end
+                vim.bo[bufnr].bufhidden = "hide"
             end
             local function set_transfer_keymaps(bufnr)
                 if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].filetype ~= "oil" then return end
+                preserve_oil_buffer(bufnr)
                 vim.keymap.set({ "n", "x" }, "y", transfer.yank, {
                     buffer = bufnr,
                     desc = "Yank file paths for transfer",
@@ -122,21 +116,14 @@ return {
                     buffer = bufnr,
                     desc = "Copy yanked files into this directory",
                 })
-                vim.keymap.set("n", "<S-h>", function() cycle_from_oil(-1) end, {
-                    buffer = bufnr,
-                    desc = "Buffer: Previous from Oil",
-                })
-                vim.keymap.set("n", "<S-l>", function() cycle_from_oil(1) end, {
-                    buffer = bufnr,
-                    desc = "Buffer: Next from Oil",
-                })
             end
             local group = vim.api.nvim_create_augroup("config.oil_transfer_keymaps", { clear = true })
             vim.api.nvim_create_autocmd("User", {
                 group = group,
                 pattern = "OilEnter",
                 callback = function(event)
-                    set_transfer_keymaps(event.data and event.data.buf or vim.api.nvim_get_current_buf())
+                    local bufnr = event.data and event.data.buf or vim.api.nvim_get_current_buf()
+                    set_transfer_keymaps(bufnr)
                 end,
             })
             vim.api.nvim_create_autocmd("FileType", {
