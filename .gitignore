@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Neovim runtime files
+*.swp
+*.swo
+*.un~
+Session.vim
+shada/
+
+# Logs and local runtime output
+*.log
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Editor and tool state
+.idea/
+.vscode/
