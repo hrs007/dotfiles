@@ -116,6 +116,18 @@ opt.foldlevel = 99
 opt.foldlevelstart = 99
 opt.foldenable = true
 
+-- Prefer stable, readable hunk boundaries and align similar changed lines
+-- within larger edits in side-by-side Git diffs.
+local diffopt = opt.diffopt:get()
+for index = #diffopt, 1, -1 do
+    if diffopt[index]:match("^algorithm:") or diffopt[index]:match("^linematch:") then
+        table.remove(diffopt, index)
+    end
+end
+table.insert(diffopt, "algorithm:histogram")
+table.insert(diffopt, "linematch:60")
+opt.diffopt = diffopt
+
 -- Keep Neovide's GUI behavior close to terminal Neovim. These globals are
 -- ignored by regular Neovim and preserve multigrid/floating UI support.
 if vim.g.neovide then

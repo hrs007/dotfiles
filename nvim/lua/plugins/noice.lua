@@ -18,13 +18,12 @@ return {
         opts = {
             cmdline = {
                 enabled = true,
-                view = "cmdline_popup",
             },
             messages = {
                 enabled = true,
-                -- Keep ordinary :echo/:messages output in the command area;
-                -- reserve notification popups for vim.notify and warnings.
-                view = "cmdline",
+                -- Keep Lazy and other message events in the notification UI,
+                -- away from the command area at the bottom of the code window.
+                view = "notify",
                 view_error = "notify",
                 view_warn = "notify",
                 view_history = "messages",
@@ -53,13 +52,19 @@ return {
             presets = {
                 bottom_search = true,
                 command_palette = true,
-                long_message_to_split = true,
+                -- Keep long notifications in the notification UI instead of
+                -- opening a bottom split over the current code buffer.
+                long_message_to_split = false,
                 lsp_doc_border = true,
             },
             views = {
-                cmdline_popup = {
-                    border = {
-                        style = "rounded",
+                -- Keep interactive prompts, including swap-file choices, at
+                -- the bottom beside their question instead of the default
+                -- top-positioned confirm popup.
+                confirm = {
+                    position = {
+                        row = -3,
+                        col = "50%",
                     },
                 },
             },
@@ -87,8 +92,65 @@ return {
 
             require("noice").setup(opts)
 
+            local function show_notification_history()
+                local records = require("notify").history()
+                local lines = {}
+                for index = #records, 1, -1 do
+                    local record = records[index]
+                    local title = record.title and (record.title[1] or "") or ""
+                    local level = (record.level or "INFO"):upper()
+                    local timestamp = os.date("%H:%M:%S", record.time or os.time())
+                    lines[#lines + 1] = ("%s  %-7s%s"):format(
+                        timestamp,
+                        level,
+                        title ~= "" and ("· " .. title) or ""
+                    )
+                    for _, message_line in ipairs(record.message or {}) do
+                        lines[#lines + 1] = "  " .. message_line
+                    end
+                    lines[#lines + 1] = ""
+                end
+                if #lines == 0 then lines[1] = "No notifications yet." end
+                if lines[#lines] == "" then lines[#lines] = nil end
+
+                local buffer = vim.fn.bufnr("Notifications")
+                if buffer > 0 and vim.api.nvim_buf_is_valid(buffer) then
+                    vim.bo[buffer].modifiable = true
+                    vim.api.nvim_buf_set_lines(buffer, 0, -1, false, lines)
+                    vim.bo[buffer].modifiable = false
+                    for _, window in ipairs(vim.api.nvim_list_wins()) do
+                        if vim.api.nvim_win_get_buf(window) == buffer then
+                            vim.api.nvim_set_current_win(window)
+                            return
+                        end
+                    end
+                else
+                    buffer = vim.api.nvim_create_buf(false, true)
+                    vim.api.nvim_buf_set_lines(buffer, 0, -1, false, lines)
+                    vim.bo[buffer].modifiable = false
+                    vim.bo[buffer].bufhidden = "wipe"
+                    vim.api.nvim_buf_set_name(buffer, "Notifications")
+                    vim.bo[buffer].filetype = "notify-history"
+                end
+                vim.cmd("botright 8split")
+                local window = vim.api.nvim_get_current_win()
+                vim.api.nvim_win_set_buf(window, buffer)
+                vim.wo[window].wrap = true
+                vim.wo[window].linebreak = true
+                vim.wo[window].cursorline = true
+                vim.wo[window].number = false
+                vim.wo[window].relativenumber = false
+                vim.wo[window].signcolumn = "no"
+                local close = function()
+                    if vim.api.nvim_win_is_valid(window) then vim.api.nvim_win_close(window, true) end
+                end
+                for _, key in ipairs({ "q", "<Esc>" }) do
+                    vim.keymap.set("n", key, close, { buffer = buffer, nowait = true, silent = true })
+                end
+            end
+
             vim.api.nvim_create_user_command("NotificationHistory", function()
-                vim.cmd("Notifications")
+                show_notification_history()
             end, { desc = "Show popup notification history" })
             vim.api.nvim_create_user_command("MessageHistory", function()
                 vim.cmd("Noice all")

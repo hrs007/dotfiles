@@ -76,15 +76,20 @@ return {
                 bg = "#fab387",
                 bold = true,
             })
-            vim.api.nvim_set_hl(0, "DiffviewDiffAddAsDelete", {
-                fg = "#f6b6c2",
-                bg = "#4a2935",
+            -- Diffview uses this group for the non-changing side of a hunk.
+            -- Keep it neutral so older in-session theme values cannot tint
+            -- unchanged lines after a config reload.
+            vim.api.nvim_set_hl(0, "DiffviewDiffDeleteDim", { link = "Comment" })
+            vim.api.nvim_set_hl(0, "DiffviewFilePanelInsertions", {
+                fg = "#a6e3a1",
+                bg = "NONE",
+                bold = true,
             })
-            vim.api.nvim_set_hl(0, "DiffviewDiffDeleteDim", {
-                fg = "#f6b6c2",
-                bg = "#4a2935",
+            vim.api.nvim_set_hl(0, "DiffviewFilePanelDeletions", {
+                fg = "#f38ba8",
+                bg = "NONE",
+                bold = true,
             })
-
             -- LSP servers mark unused symbols with the `unused` semantic
             -- token modifier and/or DiagnosticUnnecessary. Use one muted
             -- style for both paths across languages.

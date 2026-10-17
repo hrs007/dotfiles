@@ -715,37 +715,7 @@ function M.refresh_roslyn(bufnr)
 end
 
 local function select_item(items, opts, on_choice)
-    -- Use Telescope when available so choosing diagnostics/rules is searchable
-    -- and doesn't depend on a terminal's inputlist rendering.
-    local ok, pickers = pcall(require, "telescope.pickers")
-    if ok then
-        local finders = require("telescope.finders")
-        local conf = require("telescope.config").values
-        local actions = require("telescope.actions")
-        local action_state = require("telescope.actions.state")
-
-        pickers.new({}, {
-            prompt_title = opts.prompt or "Select one",
-            finder = finders.new_table({
-                results = items,
-                entry_maker = function(item)
-                    local label = opts.format_item and opts.format_item(item) or tostring(item)
-                    return { value = item, display = label, ordinal = label }
-                end,
-            }),
-            sorter = conf.generic_sorter({}),
-            attach_mappings = function(prompt_bufnr)
-                actions.select_default:replace(function()
-                    local selection = action_state.get_selected_entry()
-                    actions.close(prompt_bufnr)
-                    on_choice(selection and selection.value or nil)
-                end)
-                return true
-            end,
-        }):find()
-        return
-    end
-
+    -- Share the numbered Telescope picker used by other selection prompts.
     vim.ui.select(items, opts, on_choice)
 end
 

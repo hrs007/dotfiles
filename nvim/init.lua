@@ -10,36 +10,8 @@ vim.g.loaded_netrwPlugin = 1
 -- Load general editor settings from options.lua
 require("config.options")
 require("config.dashboard_startup")
-
--- Nvim 0.12 skips the swapfile dialog for swaps owned by a running Nvim
--- process. Replace its default handler with an explicit recovery prompt that
--- also offers deleting a stale swap file.
-vim.api.nvim_create_autocmd("VimEnter", {
-    once = true,
-    callback = function()
-        pcall(vim.api.nvim_clear_autocmds, {
-            group = "nvim.swapfile",
-            event = "SwapExists",
-        })
-
-        local group = vim.api.nvim_create_augroup("user.swapfile_prompt", { clear = true })
-        vim.api.nvim_create_autocmd("SwapExists", {
-            group = group,
-            callback = function(event)
-                local swapname = vim.fn.swapname(event.buf)
-                local answer = vim.fn.confirm(
-                    "Swap exists: " .. (swapname ~= "" and vim.fn.fnamemodify(swapname, ":t") or "unknown file"),
-                    "&Read-only\n&Edit\n&Recover\n&Delete swap\n&Quit",
-                    3
-                )
-                local choices = { "o", "e", "r", "d", "q" }
-                vim.v.swapchoice = choices[answer] or "q"
-            end,
-            desc = "Offer recovery, delete, or quit for swap files",
-        })
-    end,
-    desc = "Show an explicit Neovim swapfile recovery prompt",
-})
+require("config.lazygit")
+require("config.swapfile").setup()
 
 -- Some Neovim builds omit the Delete choice from the built-in swap dialog.
 -- Provide an explicit command for removing the current buffer's swap file.
