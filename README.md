@@ -14,10 +14,10 @@ Personal Neovim configuration for terminal Neovim and [Neovide](https://neovide.
 
 ### 1. Install the applications and font
 
-Install [Homebrew](https://brew.sh/) if you do not already have it, then install Neovim, Neovide, Git, and the Nerd Font used by the Neovide configuration:
+Install [Homebrew](https://brew.sh/) if you do not already have it, then install Neovim, Neovide, Git, search tools (ripgrep and fd), and the Nerd Font used by the Neovide configuration:
 
 ```sh
-brew install git neovim tree-sitter-cli
+brew install git neovim tree-sitter-cli ripgrep fd
 brew install --cask neovide-app font-jetbrains-mono-nerd-font
 xcode-select --install
 ```
@@ -89,6 +89,7 @@ Install the relevant system tools for languages and workflows you use:
 | JavaScript and TypeScript | Node.js and npm | Runs JS/TS projects and their package scripts. |
 | C# and .NET | .NET SDK | Builds, runs, and tests .NET projects; needed for the C# workflow. |
 | Git UI | [lazygit](https://github.com/jesseduffield/lazygit) | Used by the configured LazyGit integration. |
+| Search and navigation | [ripgrep](https://github.com/BurntSushi/ripgrep) and [fd](https://github.com/sharkdp/fd) | Required by Telescope for live text search (`<leader>fg`, `<leader>fw`) and fast file finding. |
 | Neovide icons | JetBrains Mono Nerd Font | Used by the Neovide font setting and recommended for icons in other UIs. |
 
 On macOS, install the language and workflow tools you need with Homebrew. For example:
