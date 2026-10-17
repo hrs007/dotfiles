@@ -52,49 +52,25 @@ APP_SUPPORT_DIR="$HOME/Library/Application Support/neovide"
 mkdir -p "$APP_SUPPORT_DIR"
 cp "$CONFIG" "$APP_SUPPORT_DIR/config.toml"
 
-# Clean any stale Neovide IPC socket
+# Clean any stale Neovide IPC socket or obsolete launcher app
 rm -f "$APP_SUPPORT_DIR/neovide-stable.sock"
-
-# Build native macOS OpenWithNeovide launcher app
-# This bypasses Neovide's macOS cold-start AppleEvent drop/crash bug when opening files from Finder.
-NEOVIDE_BIN=$(command -v neovide || echo "/opt/homebrew/bin/neovide")
-LAUNCHER_APP="/Applications/OpenWithNeovide.app"
-cat << EOF | osacompile -o "$LAUNCHER_APP"
-on open theFiles
-	repeat with aFile in theFiles
-		set filePath to POSIX path of aFile
-		do shell script "$NEOVIDE_BIN " & quoted form of filePath & " >/dev/null 2>&1 &"
-	end repeat
-end open
-
-on run
-	do shell script "$NEOVIDE_BIN >/dev/null 2>&1 &"
-end run
-EOF
-
-if [ -f "/Applications/Neovide.app/Contents/Resources/Neovide.icns" ]; then
-  cp "/Applications/Neovide.app/Contents/Resources/Neovide.icns" "$LAUNCHER_APP/Contents/Resources/applet.icns"
-fi
-/usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.hrs007.OpenWithNeovide" "$LAUNCHER_APP/Contents/Info.plist" 2>/dev/null || \
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.hrs007.OpenWithNeovide" "$LAUNCHER_APP/Contents/Info.plist" 2>/dev/null || true
-codesign --force --deep --sign - "$LAUNCHER_APP" >/dev/null 2>&1 || true
+rm -rf /Applications/OpenWithNeovide.app
 
 if command -v duti >/dev/null 2>&1; then
-  # Route common source types to OpenWithNeovide when opened from Finder.
+  # Route common source types to Neovide when opened from Finder.
   for extension in \
     py pyw \
     js jsx \
-    c h cc cpp cxx hh hpp hxx \
-    lua txt md json toml yaml yml; do
-    duti -s com.hrs007.OpenWithNeovide "$extension" all 2>/dev/null || true
+    c h cc cpp cxx hh hpp hxx; do
+    duti -s com.neovide.neovide "$extension" editor 2>/dev/null || true
   done
 fi
 
 echo "Configured Neovide to run $NVIM_BIN."
-echo "Created OpenWithNeovide.app in /Applications for reliable Finder double-click file opening."
+echo "Neovide will use the same Neovim configuration and start maximized."
 if ! command -v duti >/dev/null 2>&1; then
-  echo "To make it your default in Finder: select any file, press Command-I, choose 'OpenWithNeovide' under Open with, and click Change All."
+  echo "To make Neovide the Finder default, select a source file, press Command-I, choose Neovide under Open with, and click Change All."
 else
-  echo "Common file extensions registered to OpenWithNeovide via duti."
+  echo "For .ts or .tsx files, set the Finder default manually with Command-I > Open with > Neovide > Change All if another app currently claims the extension."
 fi
 
