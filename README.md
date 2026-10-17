@@ -17,11 +17,12 @@ Personal Neovim configuration for terminal Neovim and [Neovide](https://neovide.
 Install [Homebrew](https://brew.sh/) if you do not already have it, then install Neovim, Neovide, Git, and the Nerd Font used by the Neovide configuration:
 
 ```sh
-brew install git neovim
+brew install git neovim tree-sitter-cli
 brew install --cask neovide-app font-jetbrains-mono-nerd-font
+xcode-select --install
 ```
 
-The Nerd Font is optional for terminal use, but recommended for plugin icons. Neovide is also optional if you only use Neovim in a terminal.
+Tree-sitter CLI **0.26.1 or newer** and a C compiler are required for this config to install its Tree-sitter parsers. `tree-sitter-cli` provides the `tree-sitter` command; Xcode Command Line Tools provide the compiler on macOS. The Nerd Font is optional for terminal use, but recommended for plugin icons. Neovide is also optional if you only use Neovim in a terminal.
 
 ### 2. Clone this repository and link the Neovim configuration
 
@@ -82,20 +83,23 @@ Install the relevant system tools for languages and workflows you use:
 
 | Use | Install | Why |
 | --- | --- | --- |
-| C and C++ | macOS: `xcode-select --install` | Provides a compiler and build tools; useful for Tree-sitter parsers and native plugins. |
+| Tree-sitter parsers | Tree-sitter CLI 0.26.1+ and a C compiler | The config installs parser grammars automatically when these are available. On macOS, use `brew install tree-sitter-cli` and `xcode-select --install`. |
+| C and C++ | macOS: `xcode-select --install` | Provides a compiler and build tools for C/C++ projects, Tree-sitter parsers, and native plugins. |
 | Python | Python 3 | Runs Python projects and their virtual environments. |
 | JavaScript and TypeScript | Node.js and npm | Runs JS/TS projects and their package scripts. |
 | C# and .NET | .NET SDK | Builds, runs, and tests .NET projects; needed for the C# workflow. |
 | Git UI | [lazygit](https://github.com/jesseduffield/lazygit) | Used by the configured LazyGit integration. |
 | Neovide icons | JetBrains Mono Nerd Font | Used by the Neovide font setting and recommended for icons in other UIs. |
 
-On macOS, install these with Homebrew as needed. For example:
+On macOS, install the language and workflow tools you need with Homebrew. For example:
 
 ```sh
 brew install python node dotnet lazygit
 ```
 
-Then install Xcode Command Line Tools separately with `xcode-select --install`. On Windows, install the corresponding tools from their official installers or package manager. These dependencies are optional unless you use the associated language or feature.
+On Windows, install the corresponding tools from their official installers or package manager. These dependencies are optional unless you use the associated language or feature.
+
+On Windows, install Tree-sitter CLI 0.26.1 or newer and make sure a C compiler, `curl`, and `tar` are available on `PATH` for automatic parser installation. Restart Neovim after installing them.
 
 ## Troubleshooting
 
