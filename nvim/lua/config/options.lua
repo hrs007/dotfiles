@@ -131,13 +131,6 @@ opt.diffopt = diffopt
 -- Keep Neovide's GUI behavior close to terminal Neovim. These globals are
 -- ignored by regular Neovim and preserve multigrid/floating UI support.
 if vim.g.neovide then
-    -- Use platform-appropriate GUI sizes: the compact Windows size was too
-    -- small on macOS displays. Linux keeps Neovide's config-file size.
-    if vim.fn.has("win32") == 1 then
-        vim.o.guifont = "JetBrainsMonoNL_NF:h10"
-    elseif vim.fn.has("mac") == 1 then
-        vim.o.guifont = "JetBrainsMono_Nerd_Font_Mono:h18"
-    end
     vim.g.neovide_position_animation_length = 0
     -- Keep motion feedback subtle and short so it feels smooth without making
     -- cursor movement feel delayed.

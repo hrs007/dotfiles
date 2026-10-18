@@ -36,19 +36,6 @@ tabs = false\
 ' "$CONFIG"
 fi
 
-# Prefer the Nerd Font already installed with this setup for a closer match to
-# the terminal, while preserving any existing font choice.
-if ! grep -q '^\[font\]' "$CONFIG"; then
-  cat >> "$CONFIG" <<'TOML'
-
-[font]
-normal = ["JetBrainsMono Nerd Font Mono"]
-size = 18.0
-TOML
-else
-  sed -i '' '/^\[font\]/,/^\[/ s/^size[[:space:]]*=.*/size = 18.0/' "$CONFIG"
-fi
-
 # Also sync to ~/Library/Application Support/neovide/config.toml
 APP_SUPPORT_DIR="$HOME/Library/Application Support/neovide"
 mkdir -p "$APP_SUPPORT_DIR"
