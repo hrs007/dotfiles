@@ -15,6 +15,8 @@ return {
                     globalstatus = true,
                     component_separators = { left = "│", right = "│" },
                     section_separators = { left = "", right = "" },
+                    -- Lualine renders its sections in a single line in Neovide.
+                    -- Avoid extra spacing options that can inflate its bar.
                     disabled_filetypes = {
                         statusline = { "oil" },
                     },

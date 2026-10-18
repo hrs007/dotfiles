@@ -18,7 +18,9 @@ else
   printf '\nneovim-bin = "%s"\n' "$NVIM_BIN" >> "$CONFIG"
 fi
 
-if ! grep -q '^maximized[[:space:]]*=' "$CONFIG"; then
+if ! grep -q '^maximized[[:space:]]*=' "$CONFIG" \
+  && ! grep -q '^grid[[:space:]]*=' "$CONFIG" \
+  && ! grep -q '^size[[:space:]]*=' "$CONFIG"; then
   sed -i '' '1i\
 maximized = true\
 ' "$CONFIG"
@@ -67,7 +69,7 @@ if command -v duti >/dev/null 2>&1; then
 fi
 
 echo "Configured Neovide to run $NVIM_BIN."
-echo "Neovide will use the same Neovim configuration and start maximized."
+echo "Neovide will use the same Neovim configuration and configured window geometry."
 if ! command -v duti >/dev/null 2>&1; then
   echo "To make Neovide the Finder default, select a source file, press Command-I, choose Neovide under Open with, and click Change All."
 else

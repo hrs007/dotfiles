@@ -33,6 +33,7 @@ local handled_filetypes = {
     javascriptreact = true,
     typescript = true,
     typescriptreact = true,
+    html = true,
 }
 
 local function symbol_location(symbol, uri)

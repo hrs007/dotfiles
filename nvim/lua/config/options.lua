@@ -79,9 +79,9 @@ opt.incsearch = true
 opt.showmode = false
 opt.showcmd = false
 opt.ruler = false
--- Noice provides the command-line popup; don't reserve an empty row below
--- the editor when the command line is idle.
-opt.cmdheight = 0
+-- Noice owns the command-line UI where supported. Keep Neovim's own command
+-- row visible only as a fallback when Neovide already claims those UI events.
+opt.cmdheight = vim.g.neovide and (vim.g.neovide_noice_compatible and 0 or 1) or 0
 -- Keep one sign column normally, and allow a second only when diagnostics and
 -- Git hunk signs need to appear on the same line.
 opt.signcolumn = "auto:2"

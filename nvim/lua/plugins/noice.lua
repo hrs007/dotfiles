@@ -1,6 +1,9 @@
 return {
     {
         "folke/noice.nvim",
+        -- Match terminal Neovim's Noice UI when Neovide leaves these UI
+        -- extensions available; skip it only when the GUI owns them already.
+        enabled = not vim.g.neovide or vim.g.neovide_noice_compatible == true,
         event = "VeryLazy",
         dependencies = {
             "MunifTanjim/nui.nvim",

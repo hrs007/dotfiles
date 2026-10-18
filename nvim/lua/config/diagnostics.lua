@@ -217,7 +217,7 @@ end
 
 local function queue_unused_symbol_highlights(bufnr, key, diagnostics)
     if not bufnr or bufnr == 0 then return end
-    if vim.bo[bufnr].filetype == "xml" or vim.bo[bufnr].filetype == "xaml" then
+    if vim.bo[bufnr].filetype == "html" or vim.bo[bufnr].filetype == "xml" or vim.bo[bufnr].filetype == "xaml" then
         vim.api.nvim_buf_clear_namespace(bufnr, unused_symbol_namespace, 0, -1)
         return
     end
@@ -269,7 +269,7 @@ vim.api.nvim_create_autocmd("DiagnosticChanged", {
     callback = function(event)
         local bufnr = event.buf
         vim.api.nvim_buf_clear_namespace(bufnr, unused_symbol_namespace, 0, -1)
-        if vim.bo[bufnr].filetype == "xml" or vim.bo[bufnr].filetype == "xaml" then return end
+        if vim.bo[bufnr].filetype == "html" or vim.bo[bufnr].filetype == "xml" or vim.bo[bufnr].filetype == "xaml" then return end
         local diagnostics = event.data and event.data.diagnostics or vim.diagnostic.get(bufnr)
         for _, diagnostic in ipairs(diagnostics) do
             local start_row = diagnostic.lnum
