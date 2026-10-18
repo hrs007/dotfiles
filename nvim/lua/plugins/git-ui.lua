@@ -21,6 +21,178 @@ local function jump_diff_hunk(direction)
     end
 end
 
+local diff_hunk_maps = vim.api.nvim_create_augroup("GitDiffHunkMaps", { clear = true })
+vim.api.nvim_create_autocmd({ "WinEnter", "BufWinEnter" }, {
+    group = diff_hunk_maps,
+    callback = function(event)
+        if not vim.wo.diff then return end
+
+        local bufnr = event.buf
+        for _, direction in ipairs({ "]c", "[c" }) do
+            local key = direction
+            vim.keymap.set("n", key, function()
+                if vim.wo.diff then
+                    jump_diff_hunk(key)
+                    return
+                end
+
+                -- Preserve Gitsigns navigation if this buffer is later shown
+                -- outside a diff window.
+                local ok, gitsigns = pcall(require, "gitsigns")
+                if ok then
+                    gitsigns.nav_hunk(key == "]c" and "next" or "prev", { target = "all" })
+                else
+                    vim.cmd("normal! " .. key)
+                end
+            end, {
+                buffer = bufnr,
+                silent = true,
+                desc = key == "]c" and "Next diff hunk" or "Previous diff hunk",
+            })
+        end
+    end,
+    desc = "Use diff hunk navigation in Git diff windows",
+})
+
+local function refresh_current_diffview_file()
+    local tabpage = vim.api.nvim_get_current_tabpage()
+    local ok, lib = pcall(require, "diffview.lib")
+    if not ok then return end
+
+    for _, view in ipairs(lib.views) do
+        if view.tabpage == tabpage and view.cur_entry and view.cur_layout then
+            -- Diffview's normal index-stat refresh can keep valid LOCAL and
+            -- STAGE buffers alive. After an index mutation, force those
+            -- backing buffers to be recreated or the panes can show a full
+            -- file as DiffAdd/DiffDelete.
+            view.cur_layout:detach_files()
+            for _, file in ipairs(view.cur_entry.layout:files()) do
+                file:dispose_buffer()
+            end
+            view.update_needed = true
+            view:update_files()
+            return
+        end
+    end
+end
+
+local function find_git_diff_hunk(adapter, path, row, use_cached, old_side)
+    local args = { "git", "diff", "--no-ext-diff", "--no-color", "--unified=3" }
+    if use_cached then table.insert(args, "--cached") end
+    table.insert(args, "--")
+    table.insert(args, path)
+
+    local result = vim.system(args, { cwd = adapter.ctx.toplevel, text = true }):wait()
+    if result.code ~= 0 or not result.stdout or result.stdout == "" then
+        return nil, result.stderr or "No Git diff is available for this file."
+    end
+
+    local lines = vim.split(result.stdout, "\n", { plain = true })
+    local header, hunk_start = {}, nil
+    for i, line in ipairs(lines) do
+        if line:match("^@@ ") then
+            hunk_start = i
+            break
+        end
+        if line:match("^diff %-%-git ") or #header > 0 then
+            table.insert(header, line)
+        end
+    end
+    if not hunk_start then return nil, "No Git hunk is available at this file." end
+
+    local i = hunk_start
+    while i <= #lines do
+        local hunk_header = lines[i]
+        if not hunk_header:match("^@@ ") then i = i + 1 goto continue end
+        local old_start, old_count, new_start, new_count = hunk_header:match("^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
+        old_start, new_start = tonumber(old_start), tonumber(new_start)
+        old_count = old_count == "" and 1 or tonumber(old_count)
+        new_count = new_count == "" and 1 or tonumber(new_count)
+        local side_start, side_count = old_side and old_start or new_start, old_side and old_count or new_count
+        local contains = side_count == 0 and (row == side_start or row == side_start + 1)
+            or side_count > 0 and row >= side_start and row <= side_start + side_count - 1
+        local finish = i + 1
+        while finish <= #lines and not lines[finish]:match("^@@ ") and not lines[finish]:match("^diff %-%-git ") do
+            finish = finish + 1
+        end
+        if contains then
+            local patch_lines = vim.list_extend(vim.deepcopy(header), vim.list_slice(lines, i, finish - 1))
+            return table.concat(patch_lines, "\n") .. "\n"
+        end
+        i = finish
+        ::continue::
+    end
+    return nil, "No Git hunk found at the cursor."
+end
+
+local function diffview_hunk_action(stage)
+    local ok, lib = pcall(require, "diffview.lib")
+    if not ok then return end
+    local current_win = vim.api.nvim_get_current_win()
+    for _, view in ipairs(lib.views) do
+        if view.tabpage == vim.api.nvim_get_current_tabpage() and view.cur_entry and view.cur_layout then
+            local left, right = view.cur_layout.a, view.cur_layout.b
+            if not left or not right or not left:is_valid() or not right:is_valid()
+                or (current_win ~= left.id and current_win ~= right.id) then goto continue end
+
+            local RevType = require("diffview.vcs.rev").RevType
+            local left_rev, right_rev = left.file.rev, right.file.rev
+            local is_working = left_rev.type == RevType.STAGE and left_rev.stage == 0 and right_rev.type == RevType.LOCAL
+            local is_staged = left_rev.type == RevType.COMMIT and right_rev.type == RevType.STAGE and right_rev.stage == 0
+            if (stage and not is_working) or (not stage and not is_staged) then
+                vim.notify(stage and "Use s in a working-tree diff to stage a hunk." or "Use u in a staged diff to unstage a hunk.", vim.log.levels.INFO)
+                return
+            end
+
+            local old_side = current_win == left.id
+            local row = vim.api.nvim_win_get_cursor(current_win)[1]
+            local patch, err = find_git_diff_hunk(view.adapter, view.cur_entry.path, row, not stage, old_side)
+            if not patch then
+                vim.notify(err, vim.log.levels.INFO)
+                return
+            end
+
+            local command = {
+                "git", "apply", "--cached", "--recount",
+                "--ignore-space-change", "--ignore-whitespace",
+                "--whitespace=nowarn",
+            }
+            if not stage then table.insert(command, "--reverse") end
+            local result = vim.system(command, {
+                cwd = view.adapter.ctx.toplevel,
+                stdin = patch,
+                text = true,
+            }):wait()
+            if result.code ~= 0 then
+                vim.notify(vim.trim(result.stderr or "Git could not apply the selected hunk."), vim.log.levels.ERROR)
+                return
+            end
+            view:update_files()
+            return
+        end
+        ::continue::
+    end
+    vim.notify("No active Diffview file pane found.", vim.log.levels.WARN)
+end
+
+local function patch_diffview_index_cache()
+    local file_entry = require("diffview.scene.file_entry").FileEntry
+    if file_entry.__index_cache_precision_fix then return end
+
+    local update_index_stat = file_entry.update_index_stat
+    file_entry.update_index_stat = function(adapter, stat)
+        if stat and stat.mtime and stat.mtime.sec then
+            -- Diffview caches index mtimes at one-second precision. Keep its
+            -- cache one second behind so fast stage/unstage operations still
+            -- trigger blob-hash validation and invalidate changed index panes.
+            stat = vim.deepcopy(stat)
+            stat.mtime.sec = stat.mtime.sec - 1
+        end
+        return update_index_stat(adapter, stat)
+    end
+    file_entry.__index_cache_precision_fix = true
+end
+
 return {
     {
         "NeogitOrg/neogit",
@@ -50,6 +222,12 @@ return {
                 -- spending header space on a commit hash on every refresh.
                 show_head_commit_hash = false,
                 recent_commit_count = 5,
+            },
+            mappings = {
+                status = {
+                    ["]c"] = "GoToNextHunkHeader",
+                    ["[c"] = "GoToPreviousHunkHeader",
+                },
             },
             signs = {
                 section = { "▸", "▾" },
@@ -111,9 +289,9 @@ return {
                     },
                     { "n", "gf", false },
                     { "n", "<C-w>gf", false },
-                    { "n", "s", "<Cmd>lua require('diffview.actions').toggle_stage_entry()<CR>", { desc = "Stage / unstage this file" } },
+                    { "n", "s", function() diffview_hunk_action(true) end, { desc = "Stage this hunk" } },
+                    { "n", "u", function() diffview_hunk_action(false) end, { desc = "Unstage this hunk" } },
                     { "n", "S", "<Cmd>lua require('diffview.actions').stage_all()<CR>", { desc = "Stage all changes" } },
-                    { "n", "u", "<Cmd>lua require('diffview.actions').unstage_all()<CR>", { desc = "Unstage all changes" } },
                     {
                         "n",
                         "X",
@@ -134,7 +312,7 @@ return {
                         function() require("diffview.actions").help({ "view", "diff2" })() end,
                         { desc = "Open the help panel" },
                     },
-                    { "n", "R", "<Cmd>lua require('diffview.actions').refresh_files()<CR>", { desc = "Refresh changed files" } },
+                    { "n", "R", function() refresh_current_diffview_file() end, { desc = "Refresh changed files and diff panes" } },
                 },
                 file_panel = {
                     {
@@ -170,7 +348,7 @@ return {
                         function() require("diffview.actions").help("file_panel")() end,
                         { desc = "Open the help panel" },
                     },
-                    { "n", "R", "<Cmd>lua require('diffview.actions').refresh_files()<CR>", { desc = "Refresh changed files" } },
+                    { "n", "R", function() refresh_current_diffview_file() end, { desc = "Refresh changed files and diff panes" } },
                 },
                 file_history_panel = {
                     { "n", "gf", false },
@@ -179,8 +357,7 @@ return {
             },
             view = {
                 default = {
-                    -- Show Diffview's INDEX / WORKING TREE label above each
-                    -- side so the source of each version is obvious.
+                    -- Show the source/version title above each diff pane.
                     winbar_info = true,
                 },
                 diff = {
@@ -207,7 +384,26 @@ return {
                 },
             },
             hooks = {
-                diff_buf_read = function()
+                diff_buf_read = function(bufnr)
+                    -- Git index snapshots are immutable from the editor.
+                    -- Hunk staging uses `git apply --cached` instead of
+                    -- editing these virtual buffers.
+                    local ok, lib = pcall(require, "diffview.lib")
+                    if ok then
+                        for _, view in ipairs(lib.views) do
+                            for _, entry in view.files:iter() do
+                                for _, file in ipairs(entry.layout:files()) do
+                                    local rev = file.rev
+                                    if file.bufnr == bufnr and rev.type == require("diffview.vcs.rev").RevType.STAGE
+                                        and rev.stage == 0 then
+                                        vim.bo[bufnr].modifiable = false
+                                        vim.bo[bufnr].readonly = true
+                                    end
+                                end
+                            end
+                        end
+                    end
+
                     vim.opt_local.wrap = false
                     vim.opt_local.number = true
                     vim.opt_local.relativenumber = false
@@ -252,5 +448,9 @@ return {
                 end,
             },
         },
+        config = function(_, opts)
+            require("diffview").setup(opts)
+            patch_diffview_index_cache()
+        end,
     },
 }

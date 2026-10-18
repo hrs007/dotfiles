@@ -113,6 +113,13 @@ return {
             ----------------------------------------------------------------
 
             vim.lsp.config("basedpyright", {
+                -- Use published diagnostics instead of pull requests. This
+                -- avoids BasedPyright's textDocument/diagnostic crash in
+                -- some Neovim setups while keeping diagnostics enabled.
+                init_options = {
+                    disablePullDiagnostics = true,
+                },
+
                 root_dir = function(bufnr, on_dir)
                     set_python_root(bufnr, on_dir, {
                         "pyrightconfig.json",

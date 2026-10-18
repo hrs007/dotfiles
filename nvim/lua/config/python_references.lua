@@ -1,14 +1,54 @@
--- Show LSP reference counts above Python function, class, and module-level
--- variable declarations. Counts exclude the declaration itself.
+-- Show LSP reference counts above Python functions, classes, methods, and
+-- module-level variables. Counts exclude the declaration itself.
 local M = {}
 local api = vim.api
 local namespace = api.nvim_create_namespace("config/python_symbol_references")
 local pending = {}
 local scan_id = {}
+local inherited_cache = {}
+
+local function inherited_methods_from_lines(bufnr)
+    local methods = {}
+    local lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    local classes, functions = {}, {}
+
+    for row, line in ipairs(lines) do
+        local leading = #(line:match("^(%s*)") or "")
+        if line:match("%S") then
+            while #classes > 0 and leading <= classes[#classes].indent do
+                table.remove(classes)
+            end
+            while #functions > 0 and leading <= functions[#functions] do
+                table.remove(functions)
+            end
+        end
+
+        local class_indent, bases = line:match("^(%s*)class%s+[%a_][%w_]*%s*%((.-)%)")
+        if not class_indent then
+            class_indent = line:match("^(%s*)class%s+[%a_][%w_]*%s*:")
+        end
+        if class_indent then
+            classes[#classes + 1] = {
+                indent = #class_indent,
+                has_base = bases ~= nil and bases:match("%S") ~= nil,
+            }
+        end
+
+        if line:match("^%s*(async%s+)?def%s+") then
+            if #functions == 0 and #classes > 0 and classes[#classes].has_base then
+                methods[row - 1] = true
+            end
+            functions[#functions + 1] = leading
+        end
+    end
+
+    return methods
+end
 
 local function declarations_from_lines(bufnr)
     local found = {}
     local lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
+    local inherited_methods = inherited_methods_from_lines(bufnr)
     local function scope_end(start_row, indent)
         local last = start_row
         for index = start_row + 1, #lines do
@@ -36,6 +76,7 @@ local function declarations_from_lines(bufnr)
                 end_row = end_row,
                 end_col = end_col,
                 highlight = { row = row - 1, col = 0, end_row = end_row, end_col = end_col },
+                inherited_method = inherited_methods[row - 1] or false,
             }
         elseif not line:match("^%s*#") then
             local lhs = line:match("^(%s*)([%a_][%w_]*)%s*:%s*[^=]+=")
@@ -68,6 +109,7 @@ local function declarations_from_lines(bufnr)
 end
 
 local function declarations(bufnr)
+    local inherited_methods = inherited_methods_from_lines(bufnr)
     local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "python")
     if not ok or not parser then return declarations_from_lines(bufnr) end
     local parsed, trees = pcall(parser.parse, parser)
@@ -84,7 +126,11 @@ local function declarations(bufnr)
     local found, seen = {}, {}
     for _, node in query:iter_captures(root, bufnr, 0, -1) do
         local row, col, end_row, end_col = node:range()
-        local parent = node:parent()
+        local direct_parent = node:parent()
+        local is_function_name = direct_parent
+            and direct_parent:type() == "function_definition"
+            and direct_parent:child_by_field_name("name") == node
+        local parent = is_function_name and direct_parent:parent() or direct_parent
         local local_scope = false
         while parent do
             local kind = parent:type()
@@ -96,6 +142,7 @@ local function declarations(bufnr)
         end
         if not local_scope then
             local name = vim.treesitter.get_node_text(node, bufnr)
+            local inherited_method = inherited_methods[row] or false
             local key = row .. ":" .. col
             if name ~= "" and not seen[key] then
                 seen[key] = true
@@ -125,6 +172,7 @@ local function declarations(bufnr)
                         end_row = highlight_end_row,
                         end_col = highlight_end_col,
                     },
+                    inherited_method = inherited_method,
                 }
             end
         end
@@ -132,12 +180,35 @@ local function declarations(bufnr)
     return #found > 0 and found or declarations_from_lines(bufnr)
 end
 
+local function is_displayed_in_diff(bufnr)
+    for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
+        if vim.api.nvim_win_is_valid(winid) and vim.wo[winid].diff then
+            return true
+        end
+    end
+    return false
+end
+
 local function scan(bufnr)
     if not api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].filetype ~= "python" then return end
     scan_id[bufnr] = (scan_id[bufnr] or 0) + 1
     local current_scan = scan_id[bufnr]
+    if is_displayed_in_diff(bufnr) then
+        api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
+        return
+    end
     local symbols = declarations(bufnr)
-    if #symbols == 0 then return end
+
+    local countable = {}
+    for _, symbol in ipairs(symbols) do
+        if not symbol.inherited_method then
+            countable[#countable + 1] = symbol
+        end
+    end
+    if #countable == 0 then
+        api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
+        return
+    end
 
     local client
     for _, attached in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
@@ -146,10 +217,13 @@ local function scan(bufnr)
             break
         end
     end
-    if not client then return end
+    if not client then
+        api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
+        return
+    end
 
-    local results, remaining = {}, #symbols
-    for _, symbol in ipairs(symbols) do
+    local results, remaining = {}, #countable
+    for _, symbol in ipairs(countable) do
         local line = api.nvim_buf_get_lines(bufnr, symbol.row, symbol.row + 1, false)[1] or ""
         local character = symbol.col
         if vim.str_utfindex then
@@ -167,6 +241,8 @@ local function scan(bufnr)
             if remaining ~= 0 or err then return end
             vim.schedule(function()
                 if not api.nvim_buf_is_valid(bufnr) or current_scan ~= scan_id[bufnr] then return end
+                -- Keep the previous marks visible while LSP requests are in
+                -- flight; replace the full set only once the new scan is ready.
                 api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
                 for _, result in ipairs(results) do
                     local item = result.symbol
@@ -196,6 +272,28 @@ local function scan(bufnr)
             end)
         end)
     end
+end
+
+function M.is_inherited_method(bufnr, row)
+    if not api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].filetype ~= "python" then
+        return false
+    end
+    local changedtick = api.nvim_buf_get_changedtick(bufnr)
+    local cached = inherited_cache[bufnr]
+    if not cached or cached.changedtick ~= changedtick then
+        cached = {
+            changedtick = changedtick,
+            rows = inherited_methods_from_lines(bufnr),
+        }
+        inherited_cache[bufnr] = cached
+    end
+    return cached.rows[row] == true
+end
+
+function M.clear(bufnr)
+    if not api.nvim_buf_is_valid(bufnr) then return end
+    scan_id[bufnr] = (scan_id[bufnr] or 0) + 1
+    api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
 end
 
 function M.setup()
@@ -229,6 +327,13 @@ function M.setup()
             if api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].filetype == "python" then schedule(bufnr) end
         end,
         desc = "Refresh Python symbol reference counts",
+    })
+    api.nvim_create_autocmd({ "WinEnter", "BufWinEnter" }, {
+        group = group,
+        callback = function(event)
+            if vim.wo.diff then M.clear(event.buf) end
+        end,
+        desc = "Hide Python reference rows in diff windows",
     })
 end
 

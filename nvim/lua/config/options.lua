@@ -2,7 +2,7 @@ local opt = vim.opt
 
 -- Give leader-key sequences enough time to complete comfortably.
 opt.timeout = true
-opt.timeoutlen = 400
+opt.timeoutlen = 700
 -- Keep idle callbacks and redraw recovery responsive without forcing
 -- expensive UI work on every keystroke.
 opt.updatetime = 200
@@ -107,7 +107,10 @@ opt.splitbelow = true
 opt.splitright = true
 opt.sessionoptions = "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,localoptions"
 opt.wildmenu = true
-opt.wildmode = { "longest:full", "full" }
+-- Make command-line completion predictable: Tab selects/cycles matches
+-- immediately and the popup menu displays the available candidates.
+opt.wildmode = "full"
+opt.wildoptions = "pum"
 
 -- Folding
 opt.foldmethod = "expr"
@@ -116,16 +119,16 @@ opt.foldlevel = 99
 opt.foldlevelstart = 99
 opt.foldenable = true
 
--- Prefer stable, readable hunk boundaries and align similar changed lines
--- within larger edits in side-by-side Git diffs.
+-- Match Git's default Myers algorithm so Diffview's file counts and Neovim's
+-- pane highlights use the same hunk boundaries. Avoid linematch refinement,
+-- which can shift line alignment while editing a diff pane.
 local diffopt = opt.diffopt:get()
 for index = #diffopt, 1, -1 do
     if diffopt[index]:match("^algorithm:") or diffopt[index]:match("^linematch:") then
         table.remove(diffopt, index)
     end
 end
-table.insert(diffopt, "algorithm:histogram")
-table.insert(diffopt, "linematch:60")
+table.insert(diffopt, "algorithm:myers")
 opt.diffopt = diffopt
 
 -- Keep Neovide's GUI behavior close to terminal Neovim. These globals are

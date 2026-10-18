@@ -134,6 +134,12 @@ local unused_diagnostic_codes = {
 }
 
 local function is_unused_symbol_diagnostic(diagnostic)
+    for _, tag in ipairs(diagnostic.tags or {}) do
+        if tag == (vim.lsp.protocol.DiagnosticTag and vim.lsp.protocol.DiagnosticTag.Unnecessary or 1) then
+            return true
+        end
+    end
+
     local code = diagnostic.code
     if type(code) == "table" then
         code = code.value or code.code
@@ -171,6 +177,16 @@ local function diagnostic_range(diagnostic)
         return range.start.line, range.start.character,
             range["end"].line, range["end"].character
     end
+end
+
+local function is_inherited_python_method(bufnr, diagnostic)
+    if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].filetype ~= "python" then
+        return false
+    end
+    local row = diagnostic_range(diagnostic)
+    if type(row) ~= "number" then return false end
+    local ok, python_references = pcall(require, "config.python_references")
+    return ok and python_references.is_inherited_method(bufnr, row) or false
 end
 
 local function is_static_declaration_diagnostic(bufnr, diagnostic)
@@ -233,6 +249,7 @@ local function queue_unused_symbol_highlights(bufnr, key, diagnostics)
         for _, source_diagnostics in pairs(unused_diagnostics_by_buffer[bufnr] or {}) do
             for _, diagnostic in ipairs(source_diagnostics) do
                 if is_unused_symbol_diagnostic(diagnostic)
+                    and not is_inherited_python_method(bufnr, diagnostic)
                     and not is_static_declaration_diagnostic(bufnr, diagnostic)
                     and not is_xaml_referenced_csharp_method(bufnr, diagnostic) then
                     local row, col, end_row, end_col = diagnostic_range(diagnostic)
@@ -277,6 +294,7 @@ vim.api.nvim_create_autocmd("DiagnosticChanged", {
             local end_row = diagnostic.end_lnum or start_row
             local end_col = diagnostic.end_col
             if is_unused_symbol_diagnostic(diagnostic)
+                and not is_inherited_python_method(bufnr, diagnostic)
                 and not is_static_declaration_diagnostic(bufnr, diagnostic)
                 and not is_xaml_referenced_csharp_method(bufnr, diagnostic)
                 and type(start_row) == "number"
@@ -556,7 +574,8 @@ local function filtered_diagnostics(diagnostics, client_id, uri)
         local source = diagnostic_source(diagnostic, client_id)
         local visible = vim.deepcopy(diagnostic)
         visible.severity = ide_standard_severity(visible)
-        if allowed_in_quiet_python_profile(visible, source, root)
+        if not (is_unused_symbol_diagnostic(visible) and is_inherited_python_method(bufnr, visible))
+            and allowed_in_quiet_python_profile(visible, source, root)
             and allowed_in_quiet_csharp_profile(visible, filename, root)
             and not should_hide(visible, source, root, filename)
         then

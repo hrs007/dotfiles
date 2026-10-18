@@ -105,12 +105,12 @@ return {
                 fg = "#585b70",
                 italic = true,
             })
+            -- Python's reference scanner handles unused method definitions
+            -- and skips inherited methods that may be called by a framework.
             for _, group in ipairs({
-                "@lsp.mod.unused",
                 "@lsp.typemod.variable.unused",
                 "@lsp.typemod.parameter.unused",
                 "@lsp.typemod.function.unused",
-                "@lsp.typemod.method.unused",
                 "@lsp.typemod.property.unused",
                 "@lsp.typemod.field.unused",
                 "@lsp.typemod.type.unused",

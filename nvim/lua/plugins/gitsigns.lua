@@ -5,6 +5,11 @@ return {
         event = { "BufReadPre", "BufNewFile" },
 
         opts = {
+            -- Treat CRLF/LF-only differences as unchanged across repositories.
+            diff_opts = {
+                ignore_whitespace_change_at_eol = true,
+            },
+
             -- Configure signs in the sign column.
             signs = {
                 add = {
@@ -40,11 +45,11 @@ return {
 
                 -- Navigate between changed sections.
                 map("]c", function()
-                    gs.nav_hunk("next")
+                    gs.nav_hunk("next", { target = "all" })
                 end, "Next Git change")
 
                 map("[c", function()
-                    gs.nav_hunk("prev")
+                    gs.nav_hunk("prev", { target = "all" })
                 end, "Previous Git change")
 
                 -- Preview changes.
