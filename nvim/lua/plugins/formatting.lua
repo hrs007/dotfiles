@@ -17,8 +17,7 @@ local formatters_by_ft = {
     cpp = { "clang_format" },
 }
 
--- LazyGit is installed separately from Mason; Mason manages executable
--- formatters and debug adapters here.
+-- Mason manages executable formatters and debug adapters here.
 local ensure_installed = {
     "stylua",
     "prettierd",

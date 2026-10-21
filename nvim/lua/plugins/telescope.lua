@@ -133,6 +133,43 @@ pickers = {
             vim.keymap.set("n", "<leader>fh", builtin.help_tags, {
                 desc = "Search help",
             })
+
+            -- Browse symbols reported by the attached language server.
+            vim.keymap.set("n", "<leader>fs", builtin.lsp_document_symbols, {
+                desc = "Find document symbols",
+            })
+            vim.keymap.set("n", "<leader>fS", builtin.lsp_dynamic_workspace_symbols, {
+                desc = "Find workspace symbols",
+            })
+
+            -- Search diagnostics in the current file or project workspace.
+            vim.keymap.set("n", "<leader>fd", function()
+                builtin.diagnostics({ bufnr = 0 })
+            end, {
+                desc = "Find file diagnostics",
+            })
+            vim.keymap.set("n", "<leader>fD", function()
+                local project = require("config.project")
+                local start = project.current_dir()
+                local root = vim.fs.root(start, project_markers)
+                if not root and vim.bo.filetype == "cs" then
+                    local solution = project.find_solution(start)
+                    if solution then root = vim.fs.dirname(solution) end
+                end
+                builtin.diagnostics({ root_dir = root or vim.fn.getcwd() })
+            end, {
+                desc = "Find workspace diagnostics",
+            })
+
+            -- Search tracked and untracked changes in the current Git repo.
+            vim.keymap.set("n", "<leader>fG", function()
+                local project = require("config.project")
+                local start = project.current_dir()
+                local root = vim.fs.root(start, ".git")
+                builtin.git_status({ cwd = root or vim.fn.getcwd() })
+            end, {
+                desc = "Find Git changes",
+            })
         end,
     },
 }

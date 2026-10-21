@@ -57,39 +57,31 @@ return {
                 bold = true,
             })
 
-            -- Make Diffview's line-level changes stand out against the
-            -- Catppuccin background while keeping the text easy to read.
-            vim.api.nvim_set_hl(0, "DiffAdd", {
-                fg = "#c6f3c0",
-                bg = "#244238",
-            })
-            vim.api.nvim_set_hl(0, "DiffDelete", {
-                fg = "#f6b6c2",
-                bg = "#4a2935",
-            })
-            vim.api.nvim_set_hl(0, "DiffChange", {
-                fg = "#f5e6b8",
-                bg = "#39334b",
-            })
-            vim.api.nvim_set_hl(0, "DiffText", {
-                fg = "#1e1e2e",
-                bg = "#fab387",
-                bold = true,
-            })
-            -- Diffview uses this group for the non-changing side of a hunk.
-            -- Keep it neutral so older in-session theme values cannot tint
-            -- unchanged lines after a config reload.
-            vim.api.nvim_set_hl(0, "DiffviewDiffDeleteDim", { link = "Comment" })
-            vim.api.nvim_set_hl(0, "DiffviewFilePanelInsertions", {
-                fg = "#a6e3a1",
-                bg = "NONE",
-                bold = true,
-            })
-            vim.api.nvim_set_hl(0, "DiffviewFilePanelDeletions", {
-                fg = "#f38ba8",
-                bg = "NONE",
-                bold = true,
-            })
+            -- Deutan-friendly diff colors: blue for additions, yellow for
+            -- edits, and orange for deletions, with clear background blocks.
+            local diff_highlights = {
+                DiffAdd = { fg = "#cdd6f4", bg = "#263b55" },
+                DiffChange = { fg = "#f9e2af", bg = "#49402b" },
+                DiffDelete = { fg = "#fab387", bg = "#50352c" },
+                DiffText = { fg = "#1e1e2e", bg = "#f9e2af", bold = true },
+                GitSignsAdd = { fg = "#89b4fa", bold = true },
+                GitSignsChange = { fg = "#f9e2af", bold = true },
+                GitSignsDelete = { fg = "#fab387", bold = true },
+                GitSignsChangedelete = { fg = "#fab387", bold = true },
+                GitSignsTopdelete = { fg = "#fab387", bold = true },
+                GitSignsUntracked = { fg = "#94e2d5", bold = true },
+                GitSignsStagedAdd = { fg = "#89dceb", bold = true },
+                GitSignsStagedChange = { fg = "#cba6f7", bold = true },
+                GitSignsStagedDelete = { fg = "#fab387", bold = true },
+                GitSignsStagedChangedelete = { fg = "#fab387", bold = true },
+                GitSignsStagedTopdelete = { fg = "#fab387", bold = true },
+            }
+            for group, highlight in pairs(diff_highlights) do
+                vim.api.nvim_set_hl(0, group, highlight)
+            end
+
+            vim.api.nvim_set_hl(0, "WinSeparator", { fg = "#585b70", bold = true })
+
             -- LSP servers mark unused symbols with the `unused` semantic
             -- token modifier and/or DiagnosticUnnecessary. Use one muted
             -- style for both paths across languages.

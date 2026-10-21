@@ -82,8 +82,8 @@ opt.ruler = false
 -- Noice owns the command-line UI where supported. Keep Neovim's own command
 -- row visible only as a fallback when Neovide already claims those UI events.
 opt.cmdheight = vim.g.neovide and (vim.g.neovide_noice_compatible and 0 or 1) or 0
--- Keep one sign column normally, and allow a second only when diagnostics and
--- Git hunk signs need to appear on the same line.
+-- Keep one sign column normally, and allow a second when multiple signs share
+-- a line.
 opt.signcolumn = "auto:2"
 opt.laststatus = 3
 opt.termguicolors = true
@@ -118,18 +118,6 @@ opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 opt.foldlevel = 99
 opt.foldlevelstart = 99
 opt.foldenable = true
-
--- Match Git's default Myers algorithm so Diffview's file counts and Neovim's
--- pane highlights use the same hunk boundaries. Avoid linematch refinement,
--- which can shift line alignment while editing a diff pane.
-local diffopt = opt.diffopt:get()
-for index = #diffopt, 1, -1 do
-    if diffopt[index]:match("^algorithm:") or diffopt[index]:match("^linematch:") then
-        table.remove(diffopt, index)
-    end
-end
-table.insert(diffopt, "algorithm:myers")
-opt.diffopt = diffopt
 
 -- Keep Neovide's GUI behavior close to terminal Neovim. These globals are
 -- ignored by regular Neovim and preserve multigrid/floating UI support.

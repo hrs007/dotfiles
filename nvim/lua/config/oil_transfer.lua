@@ -14,7 +14,10 @@ local function save_paths(paths)
 end
 
 local function load_paths()
-    local lines = vim.fn.readfile(transfer_file())
+    local path = transfer_file()
+    if vim.fn.filereadable(path) ~= 1 then return {} end
+    local ok_read, lines = pcall(vim.fn.readfile, path)
+    if not ok_read or type(lines) ~= "table" then return {} end
     if #lines == 0 then return {} end
     local ok, paths = pcall(vim.json.decode, table.concat(lines, "\n"))
     if not ok or type(paths) ~= "table" then return {} end

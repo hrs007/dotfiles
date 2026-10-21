@@ -100,11 +100,12 @@ map("n", "<C-l>", "<C-w>l", {
 -- Window management uses Space p to avoid existing save and WPF mappings.
 map("n", "<leader>ph", "<cmd>split<CR>", { desc = "Window: Split below" })
 map("n", "<leader>pv", "<cmd>vsplit<CR>", { desc = "Window: Split right" })
+map("n", "<leader>pc", "<cmd>close<CR>", { desc = "Window: Close current, keep buffer" })
 map("n", "<leader>pe", "<C-w>=", { desc = "Window: Balance sizes" })
 map("n", "<leader>po", "<C-w>o", { desc = "Window: Close others" })
 
 -- Resize the active split in the direction that matches its shape. This also
--- works for Trouble, terminals, Oil, quickfix, and Git panels opened in splits.
+-- works for Trouble, terminals, Oil, and quickfix panels opened in splits.
 local panel_sizes = {}
 local function panel_axis(win)
     local position = vim.api.nvim_win_get_position(win)
@@ -134,9 +135,23 @@ local function panel_axis(win)
     return vertical
 end
 
-local function resize_active_panel(direction)
+local function resize_active_panel(direction, vertical_override)
     local win = vim.api.nvim_get_current_win()
+    local has_neighbor = false
+    for _, other in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if other ~= win and vim.api.nvim_win_get_config(other).relative == "" then
+            has_neighbor = true
+            break
+        end
+    end
+    if not has_neighbor then
+        return
+    end
+
     local vertical = panel_axis(win)
+    if vertical_override ~= nil and vertical_override ~= vertical then
+        return
+    end
     local size = vertical and vim.api.nvim_win_get_width(win) or vim.api.nvim_win_get_height(win)
     local step = vertical and 8 or 3
     local minimum = vertical and 24 or 5
@@ -152,6 +167,66 @@ local function resize_active_panel(direction)
     if ok then
         vim.cmd("redraw!")
     end
+end
+
+local function resize_toward(direction)
+    local api = vim.api
+    local win = api.nvim_get_current_win()
+    local position = api.nvim_win_get_position(win)
+    local y, x = position[1], position[2]
+    local width, height = api.nvim_win_get_width(win), api.nvim_win_get_height(win)
+    local best_distance, neighbor_side
+
+    for _, other in ipairs(api.nvim_tabpage_list_wins(0)) do
+        if other ~= win and api.nvim_win_get_config(other).relative == "" then
+            local other_position = api.nvim_win_get_position(other)
+            local oy, ox = other_position[1], other_position[2]
+            local ow, oh = api.nvim_win_get_width(other), api.nvim_win_get_height(other)
+            local overlap_x = math.max(0, math.min(x + width, ox + ow) - math.max(x, ox))
+            local overlap_y = math.max(0, math.min(y + height, oy + oh) - math.max(y, oy))
+            local side, distance
+
+            if (direction == "left" or direction == "right") and overlap_y > 0 then
+                if ox + ow <= x then
+                    side, distance = "left", x - ox - ow
+                elseif ox >= x + width then
+                    side, distance = "right", ox - x - width
+                end
+            elseif (direction == "up" or direction == "down") and overlap_x > 0 then
+                if oy + oh <= y then
+                    side, distance = "up", y - oy - oh
+                elseif oy >= y + height then
+                    side, distance = "down", oy - y - height
+                end
+            end
+
+            if side and distance <= 2 and (not best_distance or distance < best_distance) then
+                best_distance, neighbor_side = distance, side
+            end
+        end
+    end
+
+    if not neighbor_side then
+        return
+    end
+
+    local horizontal = direction == "left" or direction == "right"
+    local size = horizontal and width or height
+    local step = horizontal and 8 or 3
+    local minimum = horizontal and 24 or 5
+    local maximum = horizontal and math.max(minimum, vim.o.columns - 24)
+        or math.max(minimum, vim.o.lines - 6)
+    local grows = direction == neighbor_side
+    local next_size = math.min(maximum, math.max(minimum, size + (grows and step or -step)))
+
+    pcall(function()
+        if horizontal then
+            api.nvim_win_set_width(win, next_size)
+        else
+            api.nvim_win_set_height(win, next_size)
+        end
+    end)
+    vim.cmd("redraw!")
 end
 
 local function toggle_active_panel_size()
@@ -188,6 +263,12 @@ end
 map("n", "<leader>p+", function() resize_active_panel(1) end, { desc = "Panel: Increase size" })
 map("n", "<leader>p-", function() resize_active_panel(-1) end, { desc = "Panel: Decrease size" })
 map("n", "<leader>p=", toggle_active_panel_size, { desc = "Panel: Maximize / restore" })
+
+-- Alt with Vim's movement keys moves the active split boundary in that direction.
+map("n", "<M-h>", function() resize_toward("left") end, { desc = "Window: Move split left" })
+map("n", "<M-l>", function() resize_toward("right") end, { desc = "Window: Move split right" })
+map("n", "<M-k>", function() resize_toward("up") end, { desc = "Window: Move split up" })
+map("n", "<M-j>", function() resize_toward("down") end, { desc = "Window: Move split down" })
 
 vim.api.nvim_create_autocmd("WinClosed", {
     callback = function(event)
@@ -410,26 +491,21 @@ local function close_terminal()
         toggle_terminal_buf = nil
     end
     local windows = vim.api.nvim_list_wins()
+    if vim.b[buf].terminal_job_id then
+        pcall(vim.fn.jobstop, vim.b[buf].terminal_job_id)
+    end
     if #windows == 1 then
-        -- If this terminal is the final window, quit Neovim after stopping its
-        -- job and deleting the buffer. This avoids leaving an empty editor
-        -- process behind when the user closes the terminal with `q`.
-        if vim.b[buf].terminal_job_id then
-            pcall(vim.fn.jobstop, vim.b[buf].terminal_job_id)
-        end
+        -- Keep Neovim open when the terminal is the only window.
+        vim.cmd("enew")
         if vim.api.nvim_buf_is_valid(buf) then
             vim.api.nvim_buf_delete(buf, { force = true })
         end
-        vim.cmd("qa!")
         return
     end
     if vim.api.nvim_win_is_valid(win) then
         vim.api.nvim_win_close(win, true)
     end
     if vim.api.nvim_buf_is_valid(buf) then
-        if vim.b[buf].terminal_job_id then
-            pcall(vim.fn.jobstop, vim.b[buf].terminal_job_id)
-        end
         vim.api.nvim_buf_delete(buf, { force = true })
     end
 end
@@ -442,26 +518,26 @@ vim.keymap.set("t", "<C-q>", hide_terminal, {
 vim.keymap.set("t", "<Esc>", "<C-\\><C-n>", {
     desc = "Terminal: Normal mode",
 })
-vim.keymap.set("t", "<C-\\><C-n>", hide_terminal, {
-    desc = "Terminal: Hide",
-})
-
--- In terminal normal mode, q closes the terminal instead of starting a macro.
+-- Terminal actions are explicit in Normal mode. `q` remains available for
+-- normal Vim behavior and never stops a running terminal job.
 vim.api.nvim_create_autocmd("TermOpen", {
     callback = function(args)
-        vim.keymap.set("n", "q", close_terminal, {
+        vim.keymap.set("n", "<leader>tH", hide_terminal, {
             buffer = args.buf,
-            desc = "Terminal: Close",
+            desc = "Terminal: Hide current",
+        })
+        vim.keymap.set("n", "<leader>tq", close_terminal, {
+            buffer = args.buf,
+            desc = "Terminal: Stop and close current",
         })
     end,
 })
 
--- Keep q as the close key in quickfix and every Diffview window.
+-- Keep q as the close key in quickfix windows.
 vim.api.nvim_create_autocmd("FileType", {
-    pattern = { "qf", "DiffviewFiles", "DiffviewFileHistory", "Diffview", "DiffviewFileHistory" },
+    pattern = "qf",
     callback = function(args)
-        local close_command = args.match == "qf" and "close" or "DiffviewClose"
-        vim.keymap.set("n", "q", "<Cmd>" .. close_command .. "<CR>", {
+        vim.keymap.set("n", "q", "<Cmd>close<CR>", {
             buffer = args.buf,
             desc = "Close panel",
         })

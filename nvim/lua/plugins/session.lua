@@ -4,9 +4,11 @@ return {
         lazy = false,
         opts = {
             auto_save = true,
-            -- Keep the dashboard available on every startup. Restore a saved
-            -- workspace explicitly with <leader>sr when it is wanted.
-            auto_restore = false,
+            -- Reopen the saved workspace when Neovim starts in its directory.
+            -- Keep auto_restore_last_session disabled so unrelated launches
+            -- (for example from home) do not jump to another project.
+            auto_restore = true,
+            auto_restore_last_session = false,
             session_lens = {},
             bypass_save_filetypes = { "dashboard" },
             -- Do not write stale references for files removed outside Neovim.

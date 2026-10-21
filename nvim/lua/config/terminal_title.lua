@@ -5,7 +5,7 @@ local group = api.nvim_create_augroup("config.terminal_title", { clear = true })
 
 local project_markers = {
     "*.sln", "*.slnx", "*.csproj", "*.fsproj", "*.vbproj",
-    "package.json", "pyproject.toml", "Cargo.toml", "go.mod", "Makefile", ".git",
+    "package.json", "pyproject.toml", "Cargo.toml", "go.mod", "Makefile",
 }
 
 local function basename(path)

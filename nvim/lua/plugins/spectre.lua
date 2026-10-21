@@ -10,10 +10,7 @@ return {
             {
                 "<leader>fR",
                 function()
-                    local Project = require("config.project")
-                    local start = Project.current_dir()
-                    local git = Project.find_upward(start, function(name) return name == ".git" end)
-                    require("spectre").open({ cwd = git and vim.fs.dirname(git) or start })
+                    require("spectre").open({ cwd = require("config.project").current_dir() })
                 end,
                 desc = "Search and replace in project",
             },
@@ -25,12 +22,9 @@ return {
             {
                 "<leader>fW",
                 function()
-                    local Project = require("config.project")
-                    local start = Project.current_dir()
-                    local git = Project.find_upward(start, function(name) return name == ".git" end)
                     require("spectre").open_visual({
                         select_word = true,
-                        cwd = git and vim.fs.dirname(git) or start,
+                        cwd = require("config.project").current_dir(),
                     })
                 end,
                 desc = "Replace word in project",

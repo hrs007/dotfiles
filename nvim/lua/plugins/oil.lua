@@ -89,6 +89,46 @@ return {
             })
 
             local transfer = require("config.oil_transfer")
+            local function select_oil_entry()
+                local oil = require("oil")
+                local api = vim.api
+                local oil_win = api.nvim_get_current_win()
+                if not vim.w[oil_win].config_oil_side_panel then
+                    return oil.select()
+                end
+
+                local entry = oil.get_cursor_entry()
+                if not entry or entry.type == "directory" then
+                    return oil.select()
+                end
+
+                local target_win = vim.w[oil_win].config_oil_side_panel_origin
+                if not target_win or not api.nvim_win_is_valid(target_win) or target_win == oil_win then
+                    target_win = nil
+                    for _, win in ipairs(api.nvim_tabpage_list_wins(0)) do
+                        if win ~= oil_win and vim.bo[api.nvim_win_get_buf(win)].filetype ~= "oil" then
+                            target_win = win
+                            break
+                        end
+                    end
+                end
+
+                if not target_win then
+                    vim.cmd("rightbelow vsplit")
+                    target_win = api.nvim_get_current_win()
+                    api.nvim_set_current_win(oil_win)
+                end
+
+                return oil.select({
+                    handle_buffer_callback = function(bufnr)
+                        if api.nvim_win_is_valid(target_win) then
+                            api.nvim_win_set_buf(target_win, bufnr)
+                            api.nvim_set_current_win(target_win)
+                        end
+                    end,
+                })
+            end
+
             local function preserve_oil_buffer(bufnr)
                 if not vim.api.nvim_buf_is_valid(bufnr) then return end
                 vim.bo[bufnr].bufhidden = "hide"
@@ -115,6 +155,10 @@ return {
                 vim.keymap.set("n", "P", transfer.paste, {
                     buffer = bufnr,
                     desc = "Copy yanked files into this directory",
+                })
+                vim.keymap.set("n", "<CR>", select_oil_entry, {
+                    buffer = bufnr,
+                    desc = "Open file in editor; browse folders here",
                 })
             end
             local group = vim.api.nvim_create_augroup("config.oil_transfer_keymaps", { clear = true })
@@ -169,6 +213,51 @@ return {
                 oil.open(target)
             end, {
                 desc = "Open current directory in Oil (home-relative)",
+            })
+
+            local function toggle_oil_side_panel()
+                local api = vim.api
+                local oil = require("oil")
+                local current_win = api.nvim_get_current_win()
+
+                for _, win in ipairs(api.nvim_tabpage_list_wins(0)) do
+                    if api.nvim_win_is_valid(win) and vim.w[win].config_oil_side_panel then
+                        local return_win = vim.w[win].config_oil_side_panel_origin
+                        api.nvim_win_close(win, true)
+                        if return_win and api.nvim_win_is_valid(return_win) then
+                            api.nvim_set_current_win(return_win)
+                        elseif api.nvim_win_is_valid(current_win)
+                            and vim.bo[api.nvim_win_get_buf(current_win)].filetype ~= "oil"
+                        then
+                            api.nvim_set_current_win(current_win)
+                        end
+                        return
+                    end
+                end
+
+                local bufnr = api.nvim_get_current_buf()
+                local name = api.nvim_buf_get_name(bufnr)
+                local directory
+                if vim.bo[bufnr].filetype == "oil" then
+                    directory = oil.get_current_dir(bufnr)
+                elseif name ~= "" and vim.fn.isdirectory(name) == 1 then
+                    directory = name
+                elseif name ~= "" then
+                    directory = vim.fs.dirname(name)
+                else
+                    directory = vim.fn.getcwd()
+                end
+
+                vim.cmd("topleft 32vsplit")
+                local panel_win = api.nvim_get_current_win()
+                oil.open(directory)
+                vim.w[panel_win].config_oil_side_panel = true
+                vim.w[panel_win].config_oil_side_panel_origin = current_win
+                pcall(api.nvim_win_set_width, panel_win, 32)
+            end
+
+            vim.keymap.set("n", "<leader>o", toggle_oil_side_panel, {
+                desc = "Toggle Oil side panel",
             })
         end,
     },

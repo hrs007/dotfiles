@@ -65,7 +65,6 @@ vim.g.loaded_netrwPlugin = 1
 -- Load general editor settings from options.lua
 require("config.options")
 require("config.dashboard_startup")
-require("config.lazygit")
 require("config.swapfile").setup()
 
 -- Some Neovim builds omit the Delete choice from the built-in swap dialog.
