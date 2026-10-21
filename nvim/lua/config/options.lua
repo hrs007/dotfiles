@@ -107,10 +107,10 @@ opt.splitbelow = true
 opt.splitright = true
 opt.sessionoptions = "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,localoptions"
 opt.wildmenu = true
--- Make command-line completion predictable: Tab selects/cycles matches
--- immediately and the popup menu displays the available candidates.
+-- Tab selects/cycles command-line completion candidates in the popup menu;
+-- fuzzy matching helps with commands, options, and other non-file matches.
 opt.wildmode = "full"
-opt.wildoptions = "pum"
+opt.wildoptions = "pum,fuzzy"
 
 -- Folding
 opt.foldmethod = "expr"

@@ -104,6 +104,11 @@ map("n", "<leader>pc", "<cmd>close<CR>", { desc = "Window: Close current, keep b
 map("n", "<leader>pe", "<C-w>=", { desc = "Window: Balance sizes" })
 map("n", "<leader>po", "<C-w>o", { desc = "Window: Close others" })
 
+-- Temporarily give the current split the whole tab layout, then restore it.
+map("n", "<leader>pz", function() require("config.window_zoom").toggle() end, {
+    desc = "Window: Zoom / restore split",
+})
+
 -- Resize the active split in the direction that matches its shape. This also
 -- works for Trouble, terminals, Oil, and quickfix panels opened in splits.
 local panel_sizes = {}

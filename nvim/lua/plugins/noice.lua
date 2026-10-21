@@ -21,6 +21,9 @@ return {
         opts = {
             cmdline = {
                 enabled = true,
+                -- Render the command line at the bottom edge, like Neovim's
+                -- classic cmdline, instead of Noice's floating palette.
+                view = "cmdline",
             },
             messages = {
                 enabled = true,
@@ -54,7 +57,7 @@ return {
             },
             presets = {
                 bottom_search = true,
-                command_palette = true,
+                command_palette = false,
                 -- Keep long notifications in the notification UI instead of
                 -- opening a bottom split over the current code buffer.
                 long_message_to_split = false,

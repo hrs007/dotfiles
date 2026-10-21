@@ -34,6 +34,9 @@ local handled_filetypes = {
     typescript = true,
     typescriptreact = true,
     html = true,
+    -- Lua's language server already reports unused locals; the generic
+    -- document-symbol reference scan can misclassify anonymous callbacks.
+    lua = true,
 }
 
 local function symbol_location(symbol, uri)
