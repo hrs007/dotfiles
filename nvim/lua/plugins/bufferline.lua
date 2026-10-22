@@ -10,12 +10,11 @@ return {
             options = {
                 mode = "buffers",
                 numbers = "ordinal",
-                -- Keep icon glyphs on the same highlight surface as their tab.
-                color_icons = false,
-                diagnostics = "nvim_lsp",
-                diagnostics_update_in_insert = false,
+                show_buffer_icons = false,
                 show_buffer_close_icons = false,
                 show_close_icon = false,
+                diagnostics = "nvim_lsp",
+                diagnostics_update_in_insert = false,
                 separator_style = "thin",
                 always_show_bufferline = false,
                 offsets = {

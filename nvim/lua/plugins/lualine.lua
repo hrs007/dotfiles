@@ -30,19 +30,21 @@ return {
                                 local register = vim.fn.reg_recording()
                                 return register ~= "" and ("REC @" .. register) or ""
                             end,
-                            color = { fg = "#f38ba8", gui = "bold" },
+                            color = { fg = "DiagnosticError", gui = "bold" },
                         },
                     },
                     lualine_b = {
                         {
                             "branch",
                             icon = "",
-                            color = { fg = "#f5c2e7", bg = "#313244", gui = "bold" },
+                            color = { fg = "Special", bg = "TabLine", gui = "bold" },
                         },
                         {
                             "diff",
                             symbols = { added = "+", modified = "~", removed = "-" },
-                            colored = true,
+                            -- Keep diff counts on the section surface. Lualine's
+                            -- colored mode inserts separate highlight spans.
+                            colored = false,
                             source = function()
                                 local gitsigns = vim.b.gitsigns_status_dict
                                 if gitsigns then
@@ -71,6 +73,9 @@ return {
                             symbols = { error = "E:", warn = "W:", hint = "H:" },
                             colored = true,
                             update_in_insert = false,
+                            cond = function()
+                                return next(vim.diagnostic.count(0)) ~= nil
+                            end,
                         },
                     },
                     lualine_x = {
@@ -84,7 +89,7 @@ return {
                     lualine_y = {
                         {
                             "progress",
-                            color = { fg = "#c0c7d2", bg = "#000000" },
+                            color = { fg = "Comment", bg = "StatusLine" },
                         },
                     },
                     lualine_z = {
