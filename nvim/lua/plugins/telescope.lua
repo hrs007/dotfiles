@@ -58,7 +58,7 @@ pickers = {
     find_files = {
         hidden = false,
         no_ignore = false,
-        previewer = false,
+        previewer = true,
 
         find_command = {
             "rg",
@@ -169,6 +169,16 @@ pickers = {
                 builtin.git_status({ cwd = root or vim.fn.getcwd() })
             end, {
                 desc = "Find Git changes",
+            })
+
+            -- Browse repository commits and preview each commit's diff.
+            vim.keymap.set("n", "<leader>gc", builtin.git_commits, {
+                desc = "Browse Git commits",
+            })
+
+            -- Browse commits that changed the current file and preview each diff.
+            vim.keymap.set("n", "<leader>gC", builtin.git_bcommits, {
+                desc = "Browse file history",
             })
         end,
     },

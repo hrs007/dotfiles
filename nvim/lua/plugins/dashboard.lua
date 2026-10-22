@@ -40,6 +40,12 @@ return {
 
             require("dashboard").setup({
                 theme = "hyper",
+                -- Keep the shared statusline and bufferline visible on the dashboard.
+                hide = {
+                    statusline = false,
+                    tabline = false,
+                    winbar = false,
+                },
                 -- Keep recent-item hotkeys beside each entry instead of at
                 -- the far edge of a wide Neovide window.
                 shortcuts_left_side = true,
@@ -81,6 +87,12 @@ return {
                             group = "Label",
                             action = "Telescope oldfiles",
                             key = "r",
+                        },
+                        {
+                            desc = "Recent Projects",
+                            group = "Label",
+                            action = "lua require('config.dashboard_projects').pick()",
+                            key = "p",
                         },
                         {
                             desc = "New File",
@@ -125,24 +137,8 @@ return {
                 },
             })
 
-            -- The dashboard can be created after a file buffer was loaded, or
-            -- Finder can deliver its open-file event after Neovide's UIEnter.
-            -- In either order, make the real file replace any visible dashboard.
-            vim.api.nvim_create_autocmd("User", {
-                group = dashboard_group,
-                pattern = "DashboardLoaded",
-                callback = function()
-                    local buffers = vim.api.nvim_list_bufs()
-                    for index = #buffers, 1, -1 do
-                        if file_buffer(buffers[index]) then
-                            reveal_file_over_dashboard(buffers[index])
-                            return
-                        end
-                    end
-                end,
-                desc = "Prefer a loaded file over the startup dashboard",
-            })
-
+            -- Keep the dashboard open when invoked manually from a file buffer.
+            -- Files opened afterward still replace it through the autocmd below.
             vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile", "BufEnter", "BufWinEnter" }, {
                 group = dashboard_group,
                 callback = function(event)

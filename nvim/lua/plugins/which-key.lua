@@ -35,6 +35,8 @@ return {
                 { "<leader>gg", desc = "Neogit status" },
                 { "<leader>gf", desc = "Fugitive status" },
                 { "<leader>gl", desc = "Lazygit" },
+                { "<leader>gc", desc = "Browse Git commits" },
+                { "<leader>gC", desc = "Browse file history" },
                 { "<leader>h", group = "Git hunks", icon = { icon = "", color = "blue" } },
                 { "<leader>hB", desc = "Toggle line blame" },
                 { "<leader>hc", desc = "Count unstaged hunks" },

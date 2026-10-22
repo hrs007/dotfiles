@@ -2,53 +2,6 @@ vim.o.background = "dark"
 
 return {
     {
-        "folke/tokyonight.nvim",
-        lazy = true,
-        opts = { style = "storm", styles = { sidebars = "dark", floats = "dark" } },
-    },
-    {
-        "ellisonleao/gruvbox.nvim",
-        lazy = true,
-        opts = { contrast = "medium", transparent_mode = false },
-    },
-    {
-        "rebelot/kanagawa.nvim",
-        lazy = true,
-        opts = { theme = "wave", background = { dark = "wave", light = "lotus" } },
-    },
-    {
-        "rose-pine/neovim",
-        name = "rose-pine",
-        lazy = true,
-        opts = { variant = "moon", dark_variant = "moon" },
-    },
-    {
-        "EdenEast/nightfox.nvim",
-        lazy = true,
-        opts = { options = { transparent = false } },
-    },
-    {
-        "gbprod/nord.nvim",
-        lazy = true,
-        opts = { transparent = false, terminal_colors = true },
-    },
-    {
-        "neanias/everforest-nvim",
-        lazy = true,
-        config = function()
-            require("everforest").setup({
-                background = "medium",
-                float_style = "bright",
-                transparent_background_level = 0,
-            })
-        end,
-    },
-    {
-        "Mofiqul/dracula.nvim",
-        lazy = true,
-        opts = {},
-    },
-    {
         "catppuccin/nvim",
 
         name = "catppuccin",
@@ -305,64 +258,112 @@ return {
                     ["@lsp.typemod.type.unused"] = "Comment",
                     ["@lsp.typemod.class.unused"] = "Comment",
                 }
-                for group, target in pairs(links) do
-                    vim.api.nvim_set_hl(0, group, { link = target })
-                end
-
                 if vim.g.colors_name == "amoled" then
                     local black = "#000000"
-                    local muted = "#b8b8b8"
-                    local foreground = "#ffffff"
-                    local blue = "#9bbcff"
-                    local border = "#808080"
-                    local orange = "#ffc078"
-                    local green = "#a8f0b5"
-                    local red = "#ff8fa3"
-                    local yellow = "#ffe08a"
+                    local muted = "#c0c7d2"
+                    local foreground = "#f3f4f6"
+                    local blue = "#78a9ff"
+                    local border = "#68758a"
+                    local orange = "#ffad66"
+                    local green = "#70e1a1"
+                    local red = "#ff6b7a"
+                    local yellow = "#f5d76e"
+                    local raised = "#0c1018"
+                    local selected = "#1d2430"
                     local bufferline = {
                         BufferLineFill = { bg = black },
-                        BufferLineBackground = { fg = muted, bg = black },
-                        BufferLineBuffer = { fg = muted, bg = black },
-                        BufferLineBufferVisible = { fg = "#d0d0d0", bg = black },
-                        BufferLineBufferSelected = { fg = foreground, bg = black, bold = true },
-                        BufferLineIndicatorSelected = { fg = blue, bg = black, underline = true, sp = blue },
-                        BufferLineTab = { fg = muted, bg = black },
-                        BufferLineTabSelected = { fg = foreground, bg = black, bold = true, underline = true, sp = blue },
-                        BufferLineTabClose = { fg = red, bg = black },
-                        BufferLineSeparator = { fg = border, bg = black },
-                        BufferLineSeparatorVisible = { fg = border, bg = black },
-                        BufferLineSeparatorSelected = { fg = border, bg = black },
+                        BufferLineBackground = { fg = muted, bg = raised },
+                        BufferLineBuffer = { fg = muted, bg = raised },
+                        BufferLineBufferVisible = { fg = foreground, bg = raised },
+                        BufferLineBufferSelected = { fg = foreground, bg = selected, bold = true },
+                        BufferLineNumbers = { fg = muted, bg = raised },
+                        BufferLineNumbersVisible = { fg = foreground, bg = raised },
+                        BufferLineNumbersSelected = { fg = blue, bg = selected, bold = true },
+                        BufferLineIcon = { fg = muted, bg = raised },
+                        BufferLineIconVisible = { fg = foreground, bg = raised },
+                        BufferLineIconSelected = { fg = foreground, bg = selected },
+                        BufferLineDevIconDefault = { fg = muted, bg = raised },
+                        BufferLineDevIconDefaultInactive = { fg = muted, bg = raised },
+                        BufferLineDevIconDefaultSelected = { fg = foreground, bg = selected },
+                        BufferLineIndicatorSelected = { fg = blue, bg = selected },
+                        BufferLineTab = { fg = muted, bg = raised },
+                        BufferLineTabSelected = { fg = foreground, bg = selected, bold = true },
+                        BufferLineTabClose = { fg = red, bg = raised },
+                        BufferLineSeparator = { fg = border, bg = raised },
+                        BufferLineSeparatorVisible = { fg = border, bg = raised },
+                        BufferLineSeparatorSelected = { fg = border, bg = selected },
                         BufferLineOffsetSeparator = { fg = border, bg = black },
                         BufferLineTruncMarker = { fg = border, bg = black },
-                        BufferLineCloseButton = { fg = muted, bg = black },
-                        BufferLineCloseButtonVisible = { fg = muted, bg = black },
-                        BufferLineCloseButtonSelected = { fg = red, bg = black },
-                        BufferLineModified = { fg = orange, bg = black },
-                        BufferLineModifiedVisible = { fg = orange, bg = black },
-                        BufferLineModifiedSelected = { fg = green, bg = black },
-                        BufferLineDiagnostic = { fg = muted, bg = black },
-                        BufferLineDiagnosticVisible = { fg = "#d0d0d0", bg = black },
-                        BufferLineDiagnosticSelected = { fg = yellow, bg = black, bold = true },
-                        BufferLineError = { fg = red, bg = black },
-                        BufferLineErrorVisible = { fg = red, bg = black },
-                        BufferLineErrorSelected = { fg = red, bg = black, bold = true },
-                        BufferLineWarning = { fg = yellow, bg = black },
-                        BufferLineWarningVisible = { fg = yellow, bg = black },
-                        BufferLineWarningSelected = { fg = yellow, bg = black, bold = true },
-                        BufferLineInfo = { fg = blue, bg = black },
-                        BufferLineInfoVisible = { fg = blue, bg = black },
-                        BufferLineInfoSelected = { fg = blue, bg = black, bold = true },
-                        BufferLineHint = { fg = green, bg = black },
-                        BufferLineHintVisible = { fg = green, bg = black },
-                        BufferLineHintSelected = { fg = green, bg = black, bold = true },
-                        BufferLinePick = { fg = yellow, bg = black, bold = true },
-                        BufferLinePickSelected = { fg = red, bg = black, bold = true },
-                        BufferLineDuplicate = { fg = muted, bg = black, italic = true },
-                        BufferLineDuplicateVisible = { fg = "#d0d0d0", bg = black, italic = true },
-                        BufferLineDuplicateSelected = { fg = foreground, bg = black, bold = true, italic = true },
+                        BufferLineCloseButton = { fg = muted, bg = raised },
+                        BufferLineCloseButtonVisible = { fg = muted, bg = raised },
+                        BufferLineCloseButtonSelected = { fg = red, bg = selected },
+                        BufferLineModified = { fg = orange, bg = raised },
+                        BufferLineModifiedVisible = { fg = orange, bg = raised },
+                        BufferLineModifiedSelected = { fg = green, bg = selected },
+                        BufferLineDiagnostic = { fg = muted, bg = raised },
+                        BufferLineDiagnosticVisible = { fg = foreground, bg = raised },
+                        BufferLineDiagnosticSelected = { fg = yellow, bg = selected, bold = true },
+                        BufferLineError = { fg = red, bg = raised },
+                        BufferLineErrorVisible = { fg = red, bg = raised },
+                        BufferLineErrorSelected = { fg = red, bg = selected, bold = true },
+                        BufferLineWarning = { fg = yellow, bg = raised },
+                        BufferLineWarningVisible = { fg = yellow, bg = raised },
+                        BufferLineWarningSelected = { fg = yellow, bg = selected, bold = true },
+                        BufferLineInfo = { fg = blue, bg = raised },
+                        BufferLineInfoVisible = { fg = blue, bg = raised },
+                        BufferLineInfoSelected = { fg = blue, bg = selected, bold = true },
+                        BufferLineHint = { fg = green, bg = raised },
+                        BufferLineHintVisible = { fg = green, bg = raised },
+                        BufferLineHintSelected = { fg = green, bg = selected, bold = true },
+                        BufferLinePick = { fg = yellow, bg = raised, bold = true },
+                        BufferLinePickSelected = { fg = red, bg = selected, bold = true },
+                        BufferLineDuplicate = { fg = muted, bg = raised, italic = true },
+                        BufferLineDuplicateVisible = { fg = foreground, bg = raised, italic = true },
+                        BufferLineDuplicateSelected = { fg = foreground, bg = selected, bold = true, italic = true },
                     }
                     for group, highlight in pairs(bufferline) do
                         vim.api.nvim_set_hl(0, group, highlight)
+                    end
+                    local groups = vim.fn.getcompletion("BufferLine", "highlight")
+                    for _, group in ipairs(groups) do
+                        if group:match("DevIcon") or group:match("Icon") or group:match("Numbers") then
+                            local is_selected = group:match("Selected$") ~= nil
+                            local is_inactive = group:match("Inactive$") ~= nil or group:match("Visible$") ~= nil
+                            local bg = is_selected and selected or raised
+                            local fg = is_selected and foreground or (is_inactive and foreground or muted)
+                            vim.api.nvim_set_hl(0, group, { fg = fg, bg = bg })
+                        end
+                    end
+                    -- Lualine components have their own highlight groups; keep
+                    -- progress and location on the same surface as the statusline.
+                    for _, group in ipairs({
+                        "lualine_b_normal", "lualine_b_insert", "lualine_b_visual", "lualine_b_replace", "lualine_b_command", "lualine_b_inactive",
+                        "lualine_y_progress_normal", "lualine_y_progress_insert", "lualine_y_progress_visual", "lualine_y_progress_replace", "lualine_y_progress_command", "lualine_y_progress_inactive",
+                        "lualine_b_progress_normal", "lualine_b_progress_insert", "lualine_b_progress_visual", "lualine_b_progress_replace", "lualine_b_progress_command", "lualine_b_progress_inactive",
+                        "lualine_y_normal", "lualine_y_insert", "lualine_y_visual", "lualine_y_replace", "lualine_y_command", "lualine_y_inactive",
+                        "lualine_z_normal", "lualine_z_insert", "lualine_z_visual", "lualine_z_replace", "lualine_z_command", "lualine_z_inactive",
+                    }) do
+                        vim.api.nvim_set_hl(0, group, { fg = muted, bg = black })
+                    end
+                    -- The progress component can reuse its section highlight
+                    -- (lualine_b_normal in this setup), so normalize the section
+                    -- groups after Lualine has regenerated its mode palette.
+                    for _, section in ipairs({ "a", "b", "c", "x", "y", "z" }) do
+                        for _, mode in ipairs({ "normal", "insert", "visual", "replace", "command", "inactive" }) do
+                            local name = "lualine_" .. section .. "_" .. mode
+                            local current = vim.api.nvim_get_hl(0, { name = name, link = false })
+                            local fg = muted
+                            local bg = black
+                            if section == "a" then
+                                fg = black
+                                bg = ({ normal = blue, insert = green, visual = "#c49bff", replace = red, command = orange, inactive = raised })[mode]
+                            end
+                            vim.api.nvim_set_hl(0, name, vim.tbl_extend("force", current, { fg = fg, bg = bg }))
+                        end
+                    end
+                else
+                    for group, target in pairs(links) do
+                        vim.api.nvim_set_hl(0, group, { link = target })
                     end
                 end
             end
@@ -383,29 +384,27 @@ return {
                 callback = apply_theme_links,
                 desc = "Reapply theme links after lazy plugins finish setup",
             })
+            vim.api.nvim_create_autocmd("FileType", {
+                group = group,
+                pattern = "*",
+                callback = function()
+                    if vim.g.colors_name == "amoled" then
+                        vim.schedule(apply_theme_links)
+                    end
+                end,
+                desc = "Reapply AMOLED plugin highlights after buffer UI setup",
+            })
 
             local themes = {
-                { name = "Catppuccin Mocha", colorscheme = "catppuccin" },
-                { name = "Catppuccin Macchiato", colorscheme = "catppuccin-macchiato" },
-                { name = "Catppuccin Frappe", colorscheme = "catppuccin-frappe" },
-                { name = "Tokyo Night", colorscheme = "tokyonight-night" },
-                { name = "Tokyo Night Storm", colorscheme = "tokyonight-storm" },
-                { name = "Tokyo Night Moon", colorscheme = "tokyonight-moon" },
-                { name = "Gruvbox", colorscheme = "gruvbox" },
-                { name = "Kanagawa Wave", colorscheme = "kanagawa-wave" },
-                { name = "Kanagawa Dragon", colorscheme = "kanagawa-dragon" },
-                { name = "Rosé Pine Moon", colorscheme = "rose-pine-moon" },
-                { name = "Nightfox", colorscheme = "nightfox" },
-                { name = "Duskfox", colorscheme = "duskfox" },
-                { name = "Nordfox", colorscheme = "nordfox" },
-                { name = "Terafox", colorscheme = "terafox" },
-                { name = "Carbonfox", colorscheme = "carbonfox" },
-                { name = "Nord", colorscheme = "nord" },
-                { name = "Everforest Dark", colorscheme = "everforest" },
-                { name = "Dracula", colorscheme = "dracula" },
-                { name = "Dracula Soft", colorscheme = "dracula-soft" },
+                { name = "Catppuccin Latte", colorscheme = "catppuccin-latte", flavour = "latte" },
+                { name = "Catppuccin Frappé", colorscheme = "catppuccin-frappe", flavour = "frappe" },
+                { name = "Catppuccin Macchiato", colorscheme = "catppuccin-macchiato", flavour = "macchiato" },
+                { name = "Catppuccin Mocha", colorscheme = "catppuccin-mocha", flavour = "mocha" },
                 { name = "AMOLED Black", colorscheme = "amoled" },
             }
+            for _, theme in ipairs(themes) do
+                theme.key = theme.colorscheme
+            end
 
             local theme_state = vim.fn.stdpath("state") .. "/colorscheme"
             local function save_theme(colorscheme)
@@ -415,11 +414,28 @@ return {
             local function load_theme()
                 local saved = vim.fn.readfile(theme_state, "", 1)[1]
                 for _, theme in ipairs(themes) do
-                    if theme.colorscheme == saved then
-                        return saved
+                    if theme.key == saved then
+                        return theme.key
                     end
                 end
-                return "catppuccin"
+                return "catppuccin-mocha"
+            end
+
+            local function apply_theme(choice)
+                vim.o.background = "dark"
+                if choice.flavour then
+                    require("catppuccin").setup(vim.tbl_deep_extend("force", opts, {
+                        flavour = choice.flavour,
+                    }))
+                end
+                local ok, err = pcall(vim.cmd.colorscheme, choice.colorscheme)
+                if not ok then
+                    return false, err
+                end
+                apply_theme_links()
+                save_theme(choice.key)
+                pcall(function() require("lualine").refresh() end)
+                return true
             end
 
             vim.api.nvim_create_user_command("Theme", function()
@@ -428,15 +444,10 @@ return {
                     format_item = function(item) return item.name end,
                 }, function(choice)
                     if choice then
-                        vim.o.background = "dark"
-                        local ok, err = pcall(vim.cmd.colorscheme, choice.colorscheme)
+                        local ok, err = apply_theme(choice)
                         if not ok then
                             vim.notify("Could not load " .. choice.name .. ": " .. tostring(err), vim.log.levels.ERROR)
-                            return
                         end
-                        apply_theme_links()
-                        save_theme(choice.colorscheme)
-                        pcall(function() require("lualine").refresh() end)
                     end
                 end)
             end, { desc = "Choose a coordinated colorscheme" })
@@ -445,12 +456,16 @@ return {
             })
 
             local initial_theme = load_theme()
-            local ok, err = pcall(vim.cmd.colorscheme, initial_theme)
+            local selected
+            for _, theme in ipairs(themes) do
+                if theme.key == initial_theme then selected = theme break end
+            end
+            selected = selected or themes[4]
+            local ok, err = apply_theme(selected)
             if not ok then
                 vim.notify("Could not restore colorscheme " .. initial_theme .. ": " .. tostring(err), vim.log.levels.WARN)
-                vim.cmd.colorscheme("catppuccin")
+                apply_theme(themes[4])
             end
-            apply_theme_links()
         end,
     },
 }
