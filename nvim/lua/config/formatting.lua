@@ -37,11 +37,29 @@ function M.format_on_save(bufnr)
         return
     end
 
+    -- Roslyn formatting can take long enough to make a synchronous write feel
+    -- stuck. C# is handled by Conform's asynchronous format_after_save hook.
+    if vim.bo[bufnr].filetype == "cs" then
+        return
+    end
+
     return {
         timeout_ms = 5000,
-        -- XAML uses LemMinX's XML formatter; other files use their configured
-        -- external formatter only.
-        lsp_format = vim.bo[bufnr].filetype == "xml" and "fallback" or "never",
+        -- C# uses Roslyn, matching Visual Studio. XML uses the attached XML
+        -- language server; other files use their configured external formatter.
+        lsp_format = vim.bo[bufnr].filetype == "cs" and "prefer"
+            or (vim.bo[bufnr].filetype == "xml" and "fallback" or "never"),
+    }
+end
+
+function M.format_after_save(bufnr)
+    if not enabled or vim.bo[bufnr].filetype ~= "cs" then
+        return
+    end
+
+    return {
+        timeout_ms = 10000,
+        lsp_format = "prefer",
     }
 end
 

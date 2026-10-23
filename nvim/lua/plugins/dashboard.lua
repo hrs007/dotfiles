@@ -38,7 +38,8 @@ return {
                 end
             end
 
-            require("dashboard").setup({
+            local dashboard = require("dashboard")
+            local dashboard_options = {
                 theme = "hyper",
                 -- Keep the shared statusline and bufferline visible on the dashboard.
                 hide = {
@@ -135,7 +136,18 @@ return {
                         "Happy coding!",
                     },
                 },
-            })
+            }
+            dashboard.setup(dashboard_options)
+
+            -- dashboard-nvim can clear its cached context after the last
+            -- dashboard buffer closes. Reapply our in-memory options before
+            -- each manual open so its async theme callback always has a
+            -- numeric buffer id instead of falling back to a stale cache.
+            pcall(vim.api.nvim_del_user_command, "Dashboard")
+            vim.api.nvim_create_user_command("Dashboard", function()
+                dashboard.setup(dashboard_options)
+                dashboard:instance()
+            end, { desc = "Open the configured dashboard" })
 
             -- Keep the dashboard open when invoked manually from a file buffer.
             -- Files opened afterward still replace it through the autocmd below.

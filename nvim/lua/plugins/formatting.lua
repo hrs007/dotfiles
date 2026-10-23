@@ -27,11 +27,6 @@ local ensure_installed = {
     "codelldb",
     "js-debug-adapter",
 }
-if is_windows then
-    formatters_by_ft.cs = { "csharpier" }
-    table.insert(ensure_installed, "csharpier")
-end
-
 return {
     {
         "stevearc/conform.nvim",
@@ -60,6 +55,9 @@ return {
                 },
                 format_on_save = function(bufnr)
                     return require("config.formatting").format_on_save(bufnr)
+                end,
+                format_after_save = function(bufnr)
+                    return require("config.formatting").format_after_save(bufnr)
                 end,
             }
         end,

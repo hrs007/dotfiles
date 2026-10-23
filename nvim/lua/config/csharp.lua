@@ -1,6 +1,32 @@
 -- C# editing and test workflow.
 local Project = require("config.project")
 
+local function reload_roslyn()
+    local clients = vim.lsp.get_clients({ name = "roslyn" })
+    if #clients == 0 then
+        vim.notify("Roslyn is not running for this workspace yet.", vim.log.levels.WARN)
+        return
+    end
+
+    -- Roslyn can keep assembly metadata cached after a referenced DLL is
+    -- replaced. Restart the server so it reopens the solution and reloads the
+    -- project's references without requiring a full Neovim restart.
+    local ok, err = pcall(vim.cmd, "lsp restart roslyn")
+    if not ok then
+        vim.notify("Could not restart Roslyn: " .. tostring(err), vim.log.levels.ERROR)
+        return
+    end
+    vim.notify("Reloading C# solution and DLL references…", vim.log.levels.INFO)
+end
+
+vim.api.nvim_create_user_command("CSharpReloadReferences", reload_roslyn, {
+    desc = "Reload Roslyn project and referenced DLLs",
+})
+vim.keymap.set("n", "<leader>cl", reload_roslyn, {
+    desc = "C#: Reload solution and DLL references",
+    silent = true,
+})
+
 local function open_location(path, line)
     vim.cmd("edit " .. vim.fn.fnameescape(path))
     vim.api.nvim_win_set_cursor(0, { line, 0 })
@@ -152,7 +178,7 @@ vim.api.nvim_create_autocmd("FileType", {
             require("conform").format({
                 bufnr = event.buf,
                 async = false,
-                lsp_format = "never",
+                lsp_format = "prefer",
             })
         end, vim.tbl_extend("force", opts, { desc = "C#: Format file" }))
 

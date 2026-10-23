@@ -53,6 +53,7 @@ return {
                 map("n", "<leader>hq", function() gs.setqflist("all") end, "List Git hunks in quickfix")
                 map("n", "<leader>hd", gs.diffthis, "Diff file with Git index")
                 map("n", "<leader>hD", function() gs.diffthis(nil, { unified = true }) end, "Unified Git diff")
+                map("n", "<leader>gd", "<Cmd>Gitsigns diff<CR>", "Open Gitsigns diff view")
                 map("n", "<leader>ht", function()
                     local enabled = gs.toggle_signs()
                     vim.notify("Git signs " .. (enabled and "enabled" or "disabled"))
