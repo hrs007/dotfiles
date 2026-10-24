@@ -2,17 +2,17 @@ local is_windows = vim.fn.has("win32") == 1
 local formatters_by_ft = {
     lua = { "stylua" },
     python = { "ruff_format" },
-    javascript = { "prettierd", "prettier", stop_after_first = true },
-    javascriptreact = { "prettierd", "prettier", stop_after_first = true },
-    typescript = { "prettierd", "prettier", stop_after_first = true },
-    typescriptreact = { "prettierd", "prettier", stop_after_first = true },
-    html = { "prettierd", "prettier", stop_after_first = true },
-    css = { "prettierd", "prettier", stop_after_first = true },
-    scss = { "prettierd", "prettier", stop_after_first = true },
-    json = { "prettierd", "prettier", stop_after_first = true },
-    jsonc = { "prettierd", "prettier", stop_after_first = true },
-    yaml = { "prettierd", "prettier", stop_after_first = true },
-    markdown = { "prettierd", "prettier", stop_after_first = true },
+    javascript = { "prettierd" },
+    javascriptreact = { "prettierd" },
+    typescript = { "prettierd" },
+    typescriptreact = { "prettierd" },
+    html = { "prettierd" },
+    css = { "prettierd" },
+    scss = { "prettierd" },
+    json = { "prettierd" },
+    jsonc = { "prettierd" },
+    yaml = { "prettierd" },
+    markdown = { "prettierd" },
     c = { "clang_format" },
     cpp = { "clang_format" },
 }
@@ -21,7 +21,6 @@ local formatters_by_ft = {
 local ensure_installed = {
     "stylua",
     "prettierd",
-    "prettier",
     "clang-format",
     "debugpy",
     "codelldb",
@@ -46,7 +45,6 @@ return {
                 -- Run each formatter from the nearest project configuration
                 -- directory so project-local rules are discovered consistently.
                 formatters = {
-                    prettier = { cwd = root_file(web_markers) },
                     prettierd = { cwd = root_file(web_markers) },
                     ruff_format = {
                         cwd = root_file({ "ruff.toml", ".ruff.toml", "pyproject.toml" }),

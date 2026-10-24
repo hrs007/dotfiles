@@ -103,9 +103,7 @@ if vim.fn.has("win32") == 1 then
     require("config.csharp")
     require("config.csharp_unused").setup()
 end
-require("config.python_references").setup()
 require("config.cpp_references").setup()
-require("config.symbol_references").setup()
 require("config.xaml")
 
 -- Shared build/run workflow and Windows WPF commands.
@@ -115,7 +113,7 @@ require("config.wpf")
 -- load diagnostics ui for error
 require("config.diagnostics")
 
--- Python project interpreter selection and BasedPyright environment support.
+-- Python project interpreter selection and ty environment support.
 require("config.python")
 require("config.formatting")
 

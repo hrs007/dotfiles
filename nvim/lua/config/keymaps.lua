@@ -320,6 +320,10 @@ vim.api.nvim_create_autocmd("LspAttach", {
             vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
         end
 
+        -- Navigate to a symbol's declaration or type definition.
+        vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
+        vim.keymap.set("n", "gy", vim.lsp.buf.type_definition, opts)
+
         -- Go to implementations, useful for interface and abstract members.
         vim.keymap.set("n", "gI", vim.lsp.buf.implementation, opts)
 
@@ -327,7 +331,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
         vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
 
         -- Show documentation and type information.
-        vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+        vim.keymap.set("n", "K", function()
+            vim.lsp.buf.hover({ silent = true })
+        end, opts)
 
         -- Rename a symbol.
         vim.keymap.set("n", "<leader>cr", vim.lsp.buf.rename, vim.tbl_extend("force", opts, {

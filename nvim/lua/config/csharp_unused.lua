@@ -271,7 +271,7 @@ function M.setup()
         end
     end
 
-    api.nvim_create_autocmd({ "BufEnter", "BufWritePost", "TextChanged", "InsertLeave", "FocusGained" }, {
+    api.nvim_create_autocmd({ "BufWritePost", "TextChanged", "LspAttach", "FileType" }, {
         group = group,
         callback = function(event)
             refresh_buffer(event.buf)

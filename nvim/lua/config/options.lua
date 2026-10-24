@@ -88,13 +88,24 @@ opt.signcolumn = "auto:2"
 opt.laststatus = 3
 opt.termguicolors = true
 opt.mouse = "a"
-opt.list = true
+opt.list = false
 opt.listchars = {
-    tab = "» ",
-    trail = "·",
-    extends = "›",
-    precedes = "‹",
+    tab = "  ",
+    trail = " ",
+    extends = " ",
+    precedes = " ",
 }
+
+-- `list` is window-local. Keep it disabled for restored and newly entered
+-- windows too, in case a session or plugin enables it after startup.
+local whitespace_markers = vim.api.nvim_create_augroup("config.no_whitespace_markers", { clear = true })
+vim.api.nvim_create_autocmd({ "VimEnter", "WinEnter" }, {
+    group = whitespace_markers,
+    callback = function()
+        vim.wo.list = false
+    end,
+    desc = "Keep whitespace markers hidden",
+})
 
 -- Files and windows
 opt.clipboard = "unnamedplus"
@@ -118,6 +129,21 @@ opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
 opt.foldlevel = 99
 opt.foldlevelstart = 99
 opt.foldenable = true
+opt.foldcolumn = "0"
+
+-- Sessions save window-local options, so reapply the hidden fold gutter after
+-- a session restores its previous window settings.
+vim.api.nvim_create_autocmd("SessionLoadPost", {
+    group = vim.api.nvim_create_augroup("config.fold_gutter", { clear = true }),
+    callback = function()
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+            vim.api.nvim_win_call(win, function()
+                vim.wo.foldcolumn = "0"
+            end)
+        end
+    end,
+    desc = "Hide fold gutter after session restore",
+})
 
 -- Keep Neovide's GUI behavior close to terminal Neovim. These globals are
 -- ignored by regular Neovim and preserve multigrid/floating UI support.

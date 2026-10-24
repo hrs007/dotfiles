@@ -189,7 +189,7 @@ end
 
 local function python_command(start)
     local root_marker = Project.find_upward(start, function(name)
-        return name == "pyrightconfig.json" or name == "pyproject.toml"
+        return name == "pyproject.toml"
             or name == "setup.py" or name == "setup.cfg" or name == "requirements.txt"
             or name == "Pipfile" or name == ".git"
     end)

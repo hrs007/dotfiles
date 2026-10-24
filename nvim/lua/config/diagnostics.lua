@@ -179,16 +179,6 @@ local function diagnostic_range(diagnostic)
     end
 end
 
-local function is_inherited_python_method(bufnr, diagnostic)
-    if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].filetype ~= "python" then
-        return false
-    end
-    local row = diagnostic_range(diagnostic)
-    if type(row) ~= "number" then return false end
-    local ok, python_references = pcall(require, "config.python_references")
-    return ok and python_references.is_inherited_method(bufnr, row) or false
-end
-
 local function is_static_declaration_diagnostic(bufnr, diagnostic)
     if vim.bo[bufnr].filetype ~= "cs" then return false end
     local row, col, end_row, end_col = diagnostic_range(diagnostic)
@@ -249,7 +239,6 @@ local function queue_unused_symbol_highlights(bufnr, key, diagnostics)
         for _, source_diagnostics in pairs(unused_diagnostics_by_buffer[bufnr] or {}) do
             for _, diagnostic in ipairs(source_diagnostics) do
                 if is_unused_symbol_diagnostic(diagnostic)
-                    and not is_inherited_python_method(bufnr, diagnostic)
                     and not is_static_declaration_diagnostic(bufnr, diagnostic)
                     and not is_xaml_referenced_csharp_method(bufnr, diagnostic) then
                     local row, col, end_row, end_col = diagnostic_range(diagnostic)
@@ -294,7 +283,6 @@ vim.api.nvim_create_autocmd("DiagnosticChanged", {
             local end_row = diagnostic.end_lnum or start_row
             local end_col = diagnostic.end_col
             if is_unused_symbol_diagnostic(diagnostic)
-                and not is_inherited_python_method(bufnr, diagnostic)
                 and not is_static_declaration_diagnostic(bufnr, diagnostic)
                 and not is_xaml_referenced_csharp_method(bufnr, diagnostic)
                 and type(start_row) == "number"
@@ -438,41 +426,6 @@ local function ide_standard_severity(diagnostic)
     return is_unused_rule and vim.diagnostic.severity.WARN or diagnostic.severity
 end
 
-local function allowed_in_quiet_python_profile(diagnostic, source, root)
-    if not source:lower():find("pyright", 1, true) then
-        return true
-    end
-
-    local ok, python = pcall(require, "config.python")
-    if not ok then
-        return true
-    end
-    local profile = python.diagnostics_profile(root)
-    if profile ~= "quiet" then
-        return true
-    end
-
-    local code = diagnostic.code
-    if type(code) == "table" then
-        code = code.value or code.code
-    end
-    code = tostring(code or ""):lower()
-    local message = tostring(diagnostic.message or ""):lower()
-
-    -- Quiet intentionally keeps only core correctness blockers. Match exact
-    -- rule names: reportPossiblyUnboundVariable is a heuristic and must not
-    -- pass through as reportUnboundVariable.
-    local core_rules = {
-        reportundefinedvariable = true,
-        reportunboundvariable = true,
-        reportmissingimports = true,
-        reportmissingmodulesource = true,
-    }
-    return core_rules[code] == true
-        or message:find("syntax error", 1, true) ~= nil
-        or message:find("invalid syntax", 1, true) ~= nil
-end
-
 local function allowed_in_quiet_csharp_profile(diagnostic, filename, root)
     if not filename:lower():match("%.cs$") then
         return true
@@ -563,6 +516,13 @@ local function filtered_diagnostics(diagnostics, client_id, uri)
         filename = ok and path or ""
     end
     local root = project_root(filename)
+    local client = client_id and vim.lsp.get_client_by_id(client_id)
+    if client and client.name == "ty" then
+        local ok, python = pcall(require, "config.python")
+        if ok and not python.ty_diagnostics_enabled(client.config.root_dir or root) then
+            return {}
+        end
+    end
     local ok_buf, bufnr = pcall(vim.uri_to_bufnr, uri)
     if ok_buf and bufnr then
         local cache_key = tostring(client_id or "unknown") .. "\0" .. tostring(uri)
@@ -574,9 +534,7 @@ local function filtered_diagnostics(diagnostics, client_id, uri)
         local source = diagnostic_source(diagnostic, client_id)
         local visible = vim.deepcopy(diagnostic)
         visible.severity = ide_standard_severity(visible)
-        if not (is_unused_symbol_diagnostic(visible) and is_inherited_python_method(bufnr, visible))
-            and allowed_in_quiet_python_profile(visible, source, root)
-            and allowed_in_quiet_csharp_profile(visible, filename, root)
+        if allowed_in_quiet_csharp_profile(visible, filename, root)
             and not should_hide(visible, source, root, filename)
         then
             if not visible.source or visible.source == "" then
@@ -854,9 +812,6 @@ function M.select_profile(bufnr)
     if buffer_name:lower():match("%.cs$") then
         return require("config.csharp_diagnostics").select_profile(bufnr)
     end
-    if vim.bo[bufnr].filetype == "python" then
-        return require("config.python").select_diagnostics_profile(bufnr)
-    end
     if vim.bo[bufnr].filetype == "cs" then
         return require("config.csharp_diagnostics").select_profile(bufnr)
     end
@@ -969,9 +924,7 @@ vim.api.nvim_create_user_command("DiagnosticsProfile", function(command)
         M.select_profile(bufnr)
         return
     end
-    if vim.bo[bufnr].filetype == "python" then
-        require("config.python").apply_diagnostics_profile_for_buffer(bufnr, command.args:lower())
-    elseif vim.bo[bufnr].filetype == "cs" then
+    if vim.bo[bufnr].filetype == "cs" then
         require("config.csharp_diagnostics").apply_profile_for_buffer(bufnr, command.args:lower())
     elseif vim.bo[bufnr].filetype == "oil" then
         local ok, directory = pcall(function()

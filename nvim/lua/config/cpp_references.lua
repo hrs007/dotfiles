@@ -213,7 +213,7 @@ function M.setup()
             close_timer(timer)
         end))
     end
-    api.nvim_create_autocmd({ "BufEnter", "BufWritePost", "TextChanged", "InsertLeave", "FocusGained", "LspAttach", "FileType" }, {
+    api.nvim_create_autocmd({ "BufWritePost", "TextChanged", "LspAttach", "FileType" }, {
         group = group,
         callback = function(event)
             local bufnr = event.buf ~= 0 and event.buf or api.nvim_get_current_buf()

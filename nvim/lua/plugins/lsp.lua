@@ -22,7 +22,7 @@ return {
         -- Language servers to install.
         opts = {
             ensure_installed = {
-                "basedpyright", -- Python type checking
+                "ty",            -- Python type checking and language features
                 "ruff",         -- Python linting
                 "clangd",       -- C and C++
                 "ts_ls",        -- JavaScript and TypeScript
@@ -45,6 +45,12 @@ return {
             -- Enable Blink completion and LSP file-operation capabilities so
             -- Oil can ask TypeScript servers to rewrite imports on moves.
             local capabilities = require("blink.cmp").get_lsp_capabilities()
+            capabilities.textDocument = vim.tbl_deep_extend("force", capabilities.textDocument or {}, {
+                foldingRange = {
+                    dynamicRegistration = false,
+                    lineFoldingOnly = true,
+                },
+            })
             capabilities.workspace = vim.tbl_deep_extend("force", capabilities.workspace or {}, {
                 fileOperations = {
                     dynamicRegistration = false,
@@ -109,20 +115,14 @@ return {
             end
 
             ----------------------------------------------------------------
-            -- BasedPyright: Python type checking
+            -- ty: Python type checking and language features
             ----------------------------------------------------------------
 
-            vim.lsp.config("basedpyright", {
-                -- Use published diagnostics instead of pull requests. This
-                -- avoids BasedPyright's textDocument/diagnostic crash in
-                -- some Neovim setups while keeping diagnostics enabled.
-                init_options = {
-                    disablePullDiagnostics = true,
-                },
-
+            vim.lsp.config("ty", {
+                cmd = { "ty", "server" },
                 root_dir = function(bufnr, on_dir)
                     set_python_root(bufnr, on_dir, {
-                        "pyrightconfig.json",
+                        "ty.toml",
                         "pyproject.toml",
                         "setup.py",
                         "setup.cfg",
@@ -131,22 +131,17 @@ return {
                         ".git",
                     })
                 end,
-
                 on_init = function(client)
                     local python = require("config.python")
                     local interpreter = python.resolve(client.config.root_dir)
-                    local _, profile = python.diagnostics_profile(client.config.root_dir)
-
-                    -- Set the selected project interpreter and diagnostics
-                    -- profile after initialization so stored per-project
-                    -- preferences take effect on every launch.
                     local updates = {
-                        basedpyright = {
-                            analysis = { typeCheckingMode = profile.basedpyright },
+                        ty = {
+                            diagnosticMode = python.ty_diagnostics_enabled(client.config.root_dir)
+                                    and "openFilesOnly" or "off",
                         },
                     }
                     if interpreter then
-                        updates.python = { pythonPath = interpreter }
+                        updates.ty.configuration = { environment = { python = interpreter } }
                     end
                     client.config.settings = vim.tbl_deep_extend(
                         "force",
@@ -157,62 +152,23 @@ return {
                         settings = client.config.settings,
                     })
                 end,
-
                 settings = {
-                    basedpyright = {
-                        analysis = {
-                            -- Keep new Python projects quiet by default. The
-                            -- project profile manager can enable deeper checks.
-                            typeCheckingMode = "off",
-                            autoSearchPaths = true,
-                            diagnosticMode = "openFilesOnly",
-
-                            -- Exclude large directories from analysis.
-                            exclude = {
-                                "**/.git",
-                                "**/.venv",
-                                "**/venv",
-                                "**/env",
-                                "**/AppData",
-                                "**/node_modules",
-                                "**/__pycache__",
-                                "**/build",
-                                "**/dist",
-                                "**/.mypy_cache",
-                                "**/.pytest_cache",
-                            },
+                    ty = {
+                        diagnosticMode = "openFilesOnly",
+                        inlayHints = {
+                            variableTypes = true,
+                            callArgumentNames = true,
                         },
                     },
                 },
             })
+            vim.lsp.enable("ty")
 
             ----------------------------------------------------------------
             -- Ruff: Python linting
             ----------------------------------------------------------------
 
             vim.lsp.config("ruff", {
-                -- Ruff 0.17 expanded its built-in default rule set
-                -- substantially. Keep a focused baseline when a project has
-                -- no Ruff config, and let filesystem project config win.
-                init_options = {
-                    settings = {
-                        configurationPreference = "filesystemFirst",
-                        configuration = {
-                            lint = {
-                                select = { "E9", "F" },
-                            },
-                        },
-                    },
-                },
-                on_init = function(client)
-                    local settings = require("config.python").ruff_settings_for_root(client.config.root_dir)
-                    client.config.init_options = vim.tbl_deep_extend(
-                        "force",
-                        client.config.init_options or {},
-                        { settings = settings }
-                    )
-                    client:notify("workspace/didChangeConfiguration", { settings = settings })
-                end,
                 root_dir = function(bufnr, on_dir)
                     set_python_root(bufnr, on_dir, {
                         "ruff.toml",
