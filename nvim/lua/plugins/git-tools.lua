@@ -73,7 +73,7 @@ return {
                             and vim.b[buf].fugitive_type == nil then
                             return
                         end
-                        vim.keymap.set("n", "<leader>pz", function()
+                        vim.keymap.set("n", "<leader>wz", function()
                             require("config.window_zoom").toggle()
                         end, {
                             buffer = buf,
