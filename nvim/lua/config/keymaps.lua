@@ -72,7 +72,7 @@ map("n", "<leader>q", "<cmd>quit<CR>", {
 -- ==========================================
 
 -- Move to the window on the left.
-map("n", "<C-h>", "<C-w>h", {
+map("n", "<C-h>", function() vim.cmd.wincmd("h") end, {
 	desc = "Move to left window",
 })
 
@@ -87,7 +87,7 @@ map("n", "<C-k>", "<C-w>k", {
 })
 
 -- Move to the window on the right.
-map("n", "<C-l>", "<C-w>l", {
+map("n", "<C-l>", function() vim.cmd.wincmd("l") end, {
 	desc = "Move to right window",
 })
 
@@ -290,22 +290,22 @@ vim.api.nvim_create_autocmd("WinClosed", {
 
 -- Diagnostic controls: visibility toggles are session-only, while rule ignores
 -- can be saved for the current project or every project.
-map("n", "<leader>ne", function()
+map("n", "<leader>ue", function()
 	require("config.diagnostics").toggle_severity(vim.diagnostic.severity.ERROR, "Errors")
 end, { desc = "Diagnostics: Toggle errors" })
-map("n", "<leader>nw", function()
+map("n", "<leader>uw", function()
 	require("config.diagnostics").toggle_severity(vim.diagnostic.severity.WARN, "Warnings")
 end, { desc = "Diagnostics: Toggle warnings" })
-map("n", "<leader>ni", function()
+map("n", "<leader>ui", function()
 	require("config.diagnostics").ignore_current_rule()
 end, { desc = "Diagnostics: Ignore rule" })
-map("n", "<leader>nu", function()
+map("n", "<leader>uu", function()
 	require("config.diagnostics").unignore_rule()
 end, { desc = "Diagnostics: Manage ignored rules" })
-map("n", "<leader>ns", function()
+map("n", "<leader>us", function()
 	require("config.diagnostics").toggle_signs()
 end, { desc = "Diagnostics: Toggle signs" })
-map("n", "<leader>nf", "<Cmd>FormatOnSaveToggle<CR>", {
+map("n", "<leader>uf", "<Cmd>FormatOnSaveToggle<CR>", {
 	desc = "Formatting: Toggle format on save",
 })
 map("n", "<leader>cR", function()

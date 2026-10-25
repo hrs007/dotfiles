@@ -44,6 +44,14 @@ return {
             },
 
             completion = {
+                list = {
+                    -- Leave suggestions unselected so Enter inserts a newline
+                    -- unless the user explicitly chooses a completion item.
+                    selection = {
+                        preselect = false,
+                        auto_insert = false,
+                    },
+                },
                 accept = {
                     auto_brackets = {
                         enabled = true,

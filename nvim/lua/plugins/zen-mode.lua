@@ -11,7 +11,7 @@ return {
                     number = true,
                     relativenumber = true,
                     cursorline = true,
-                    signcolumn = "yes",
+                    signcolumn = "yes:1",
                 },
             },
             plugins = {

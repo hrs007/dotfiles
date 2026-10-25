@@ -93,6 +93,7 @@ end, { desc = "Delete the current buffer's swap file" })
 
 -- Load custom keyboard shortcuts from keymaps.lua
 require("config.keymaps")
+require("config.autosave")
 require("config.related_files")
 require("config.web_routes").setup()
 require("config.terminal_title")

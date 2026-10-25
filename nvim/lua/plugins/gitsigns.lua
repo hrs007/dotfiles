@@ -1,3 +1,20 @@
+local state_path = vim.fs.joinpath(vim.fn.stdpath("state"), "git-signs.json")
+local git_signs_enabled = true
+if vim.fn.filereadable(state_path) == 1 then
+    local ok, value = pcall(vim.json.decode, table.concat(vim.fn.readfile(state_path), "\n"))
+    if ok and type(value) == "table" and type(value.enabled) == "boolean" then
+        git_signs_enabled = value.enabled
+    end
+end
+
+local function save_git_signs_state(enabled)
+    vim.fn.mkdir(vim.fs.dirname(state_path), "p")
+    local result = vim.fn.writefile({ vim.json.encode({ enabled = enabled }) }, state_path)
+    if result ~= 0 then
+        vim.notify("Could not save Git signs visibility setting.", vim.log.levels.ERROR)
+    end
+end
+
 return {
     {
         "lewis6991/gitsigns.nvim",
@@ -15,6 +32,7 @@ return {
                 changedelete = { text = "~" },
                 untracked = { text = "┆" },
             },
+            signcolumn = git_signs_enabled,
             signs_staged_enable = true,
             current_line_blame = false,
             on_attach = function(bufnr)
@@ -56,6 +74,7 @@ return {
                 map("n", "<leader>gd", "<Cmd>Gitsigns diff<CR>", "Open Gitsigns diff view")
                 map("n", "<leader>ht", function()
                     local enabled = gs.toggle_signs()
+                    save_git_signs_state(enabled)
                     vim.notify("Git signs " .. (enabled and "enabled" or "disabled"))
                 end, "Toggle Git signs")
                 map("n", "<leader>hn", function()

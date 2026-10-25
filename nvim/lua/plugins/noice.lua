@@ -27,12 +27,33 @@ return {
             },
             messages = {
                 enabled = true,
-                -- Keep Lazy and other message events in the notification UI,
-                -- away from the command area at the bottom of the code window.
+                -- Keep ordinary Neovim messages, warnings, and errors as notifications.
                 view = "notify",
                 view_error = "notify",
                 view_warn = "notify",
                 view_history = "messages",
+            },
+            routes = {
+                -- Register listings are command output, not transient notices.
+                -- Show them in a floating pane while other
+                -- notifications continue using the notification UI.
+                {
+                    view = "registers",
+                    filter = {
+                        event = "msg_show",
+                        cmdline = "^:%s*reg",
+                    },
+                },
+                -- Send other command output taller than three lines to a
+                -- bottom split. vim.notify events are unaffected by this rule.
+                {
+                    view = "short_output",
+                    filter = { event = "msg_show", min_height = 4, max_height = 9 },
+                },
+                {
+                    view = "long_output",
+                    filter = { event = "msg_show", min_height = 10 },
+                },
             },
             notify = {
                 enabled = true,
@@ -59,12 +80,38 @@ return {
             presets = {
                 bottom_search = true,
                 command_palette = false,
-                -- Keep long notifications in the notification UI instead of
-                -- opening a bottom split over the current code buffer.
+                -- Output split sizing is handled by the routes below.
                 long_message_to_split = false,
                 lsp_doc_border = true,
             },
             views = {
+                short_output = {
+                    view = "split",
+                    position = "bottom",
+                    size = 8,
+                    enter = true,
+                },
+                long_output = {
+                    view = "split",
+                    position = "bottom",
+                    size = "35%",
+                    enter = true,
+                },
+                -- Focus bottom splits when long command output opens so the
+                -- user can close them with q or navigate from them normally.
+                split = {
+                    enter = true,
+                },
+                registers = {
+                    backend = "popup",
+                    relative = "editor",
+                    position = "50%",
+                    size = { width = "70%", height = "55%" },
+                    enter = true,
+                    border = { style = "rounded" },
+                    close = { keys = { "q", "<Esc>" } },
+                    win_options = { wrap = true, linebreak = true, cursorline = true },
+                },
                 -- Keep interactive prompts, including swap-file choices, at
                 -- the bottom beside their question instead of the default
                 -- top-positioned confirm popup.

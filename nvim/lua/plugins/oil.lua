@@ -259,6 +259,18 @@ return {
             vim.keymap.set("n", "<leader>o", toggle_oil_side_panel, {
                 desc = "Toggle Oil side panel",
             })
+
+            vim.keymap.set("n", "<leader>O", function()
+                for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+                    if vim.api.nvim_win_is_valid(win) and vim.w[win].config_oil_side_panel then
+                        vim.api.nvim_set_current_win(win)
+                        return
+                    end
+                end
+                vim.notify("Oil side panel is not open.", vim.log.levels.INFO)
+            end, {
+                desc = "Focus Oil side panel",
+            })
         end,
     },
 }
