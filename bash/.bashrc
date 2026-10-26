@@ -31,9 +31,9 @@ __dotfiles_bash_prompt() {
     fi
 
     if [[ -n ${TERM:-} && $TERM != dumb ]]; then
-        PS1='\[\e[2m\]\u@\h:\w\[\e[0m\]'"${git_segment}"'\$ '
+        PS1='\[\e[2m\]\w\[\e[0m\]'"${git_segment}"'\$ '
     else
-        PS1='\u@\h:\w'"${git_segment}"'\$ '
+        PS1='\w'"${git_segment}"'\$ '
     fi
     return "$previous_status"
 }
