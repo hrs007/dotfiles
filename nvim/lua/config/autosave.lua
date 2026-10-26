@@ -1,6 +1,18 @@
 -- Debounced saves for web source files, so dev servers can reload edits after
 -- a short pause without writing on every keystroke.
-local delay_ms = 1000
+local state_path = vim.fs.joinpath(vim.fn.stdpath("state"), "web-autosave.json")
+local function load_delay_seconds()
+    if vim.fn.filereadable(state_path) == 1 then
+        local ok, state = pcall(vim.json.decode, table.concat(vim.fn.readfile(state_path), "\n"))
+        if ok and type(state) == "table" and tonumber(state.delay_seconds) then
+            return math.max(0, tonumber(state.delay_seconds))
+        end
+    end
+    return math.max(0, tonumber(vim.g.web_autosave_delay_seconds) or 5)
+end
+
+local delay_seconds = load_delay_seconds()
+local delay_ms = delay_seconds * 1000
 local web_filetypes = {
     javascript = true,
     javascriptreact = true,
@@ -15,6 +27,28 @@ local web_filetypes = {
 
 local timers = {}
 local group = vim.api.nvim_create_augroup("config.web_autosave", { clear = true })
+
+vim.api.nvim_create_user_command("WebAutosaveDelay", function(command)
+    local seconds = tonumber(command.args)
+    if not seconds or seconds < 0 then
+        vim.notify("Usage: :WebAutosaveDelay {seconds} (use 0 for immediate save)", vim.log.levels.ERROR)
+        return
+    end
+
+    delay_seconds = seconds
+    delay_ms = seconds * 1000
+    vim.g.web_autosave_delay_seconds = seconds
+    vim.fn.mkdir(vim.fs.dirname(state_path), "p")
+    local ok, encoded = pcall(vim.json.encode, { delay_seconds = seconds })
+    if not ok or vim.fn.writefile({ encoded }, state_path) ~= 0 then
+        vim.notify("Could not save web autosave delay.", vim.log.levels.ERROR)
+        return
+    end
+    vim.notify(("Web autosave delay set to %s seconds."):format(seconds), vim.log.levels.INFO)
+end, {
+    nargs = 1,
+    desc = "Set and persist web-file autosave delay in seconds",
+})
 
 local function eligible(bufnr)
     return vim.api.nvim_buf_is_valid(bufnr)

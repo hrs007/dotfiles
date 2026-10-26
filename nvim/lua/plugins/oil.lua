@@ -53,6 +53,31 @@ return {
         config = function(_, opts)
             require("oil").setup(opts)
 
+            -- Restart/session scripts can restore an Oil buffer with `:file`
+            -- while startup has already created an unmodified Oil buffer for
+            -- the same directory. Remove that stale duplicate before Neovim
+            -- assigns the restored buffer its name (which otherwise fails E95).
+            vim.api.nvim_create_autocmd("BufFilePre", {
+                group = vim.api.nvim_create_augroup("config.oil_session_name", { clear = true }),
+                callback = function(event)
+                    local target = event.file or event.match or ""
+                    if not target:match("^oil://") then return end
+
+                    local restoring_buf = event.buf
+                    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+                        if bufnr ~= restoring_buf
+                            and vim.api.nvim_buf_is_valid(bufnr)
+                            and vim.api.nvim_buf_get_name(bufnr) == target
+                            and vim.bo[bufnr].filetype == "oil"
+                            and not vim.bo[bufnr].modified
+                        then
+                            pcall(vim.api.nvim_buf_delete, bufnr, { force = true })
+                        end
+                    end
+                end,
+                desc = "Allow restored Oil buffers to reuse their saved URI",
+            })
+
             -- Open Oil for an explicit directory argument such as `nvim .`.
             -- Do not reopen Oil merely because a restored buffer has an
             -- oil:// name; restart/session restoration should keep its state.

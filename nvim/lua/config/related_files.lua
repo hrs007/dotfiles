@@ -386,6 +386,70 @@ local function open_import()
     end)
 end
 
+-- Open a local path under the cursor (including markup attributes such as
+-- src="/src/main.tsx"). Root-relative web paths resolve from the project root.
+local function open_path_or_url()
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local line = vim.api.nvim_buf_get_lines(0, cursor[1] - 1, cursor[1], false)[1] or ""
+    local col = cursor[2] + 1
+    local target
+
+    -- Prefer the full quoted value when the cursor is inside an HTML/JSX
+    -- attribute, so URLs retain their scheme and local paths retain slashes.
+    for _, quote in ipairs({ '"', "'" }) do
+        local pattern = quote == '"' and '()"([^"]*)"()' or "()'([^']*)'()"
+        for first, value, last in line:gmatch(pattern) do
+            if first < col and col <= last then
+                target = value
+                break
+            end
+        end
+        if target then break end
+    end
+    if not target then
+        target = vim.fn.expand("<cfile>")
+    end
+    if target == "" then
+        vim.notify("Place the cursor on a path or URL first.", vim.log.levels.INFO)
+        return
+    end
+
+    if target:match("^https?://") then
+        if vim.ui.open then
+            vim.ui.open(target)
+        else
+            vim.fn["netrw#BrowseX"](target, 0)
+        end
+        return
+    end
+
+    target = target:gsub("[?#].*$", "")
+
+    local file = vim.api.nvim_buf_get_name(0)
+    local start = file ~= "" and vim.fs.dirname(file) or Project.current_dir()
+    local root = project_root(start)
+    local candidates = {}
+    if target:sub(1, 1) == "/" then
+        candidates[#candidates + 1] = vim.fs.joinpath(root, target:sub(2))
+    else
+        candidates[#candidates + 1] = vim.fs.joinpath(start, target)
+        candidates[#candidates + 1] = vim.fs.joinpath(root, target)
+    end
+    for _, path in ipairs(candidates) do
+        if vim.fn.filereadable(path) == 1 then
+            local bufnr = vim.fn.bufadd(path)
+            vim.fn.bufload(bufnr)
+            vim.api.nvim_win_set_buf(0, bufnr)
+            return
+        end
+    end
+    vim.notify("Could not find local file: " .. target, vim.log.levels.WARN)
+end
+
+vim.keymap.set("n", "gx", open_path_or_url, {
+    desc = "Open path under cursor (or URL)",
+})
+
 vim.keymap.set("n", "<leader>cF", open_related_file, {
     desc = "Code: Open related file",
 })
@@ -404,4 +468,4 @@ vim.api.nvim_create_autocmd("FileType", {
     end,
 })
 
-return { open = open_related_file, open_import = open_import }
+return { open = open_related_file, open_import = open_import, open_path_or_url = open_path_or_url }

@@ -1,5 +1,18 @@
 local opt = vim.opt
 
+-- Briefly highlight text after yanking so the copied range is visible.
+vim.api.nvim_create_autocmd("TextYankPost", {
+    group = vim.api.nvim_create_augroup("config.yank_highlight", { clear = true }),
+    callback = function()
+        vim.highlight.on_yank({ higroup = "IncSearch", timeout = 250 })
+    end,
+    desc = "Highlight yanked text briefly",
+})
+
+-- Debounce web-file auto-saves for this many seconds. Change this value to
+-- adjust how long Neovim waits after the last edit before saving.
+vim.g.web_autosave_delay_seconds = 5
+
 -- Give leader-key sequences enough time to complete comfortably.
 opt.timeout = true
 opt.timeoutlen = 700
