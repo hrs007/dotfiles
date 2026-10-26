@@ -82,14 +82,34 @@ Run these commands in Ubuntu. Install Neovim and the common native tools inside 
 
 ```sh
 sudo apt update
-sudo apt install neovim git curl build-essential ripgrep fd-find unzip xclip
+sudo apt install neovim git curl build-essential ripgrep fd-find unzip xclip nodejs npm python3-venv cargo
 git clone https://github.com/hrs007/dotfiles.git ~/dotfiles
 mkdir -p ~/.config
 ln -s ~/dotfiles/nvim ~/.config/nvim
+export PATH="$HOME/.cargo/bin:$PATH"
+cargo install tree-sitter-cli --locked
 nvim
 ```
 
-If `~/.config/nvim` already exists, move it aside before creating the link. Run `:Lazy sync` after the first launch. Ubuntu packages `fd` as `fdfind`; if Telescope cannot find `fd`, install the `fd` package if available for your Ubuntu release or add an `fd` symlink to `fdfind` in `~/.local/bin`.
+If `~/.config/nvim` already exists, move it aside before creating the link. Run `:Lazy sync` after the first launch. `nodejs` provides the Node executable for the JavaScript debugger. `cargo install` installs Tree-sitter CLI; add `export PATH="$HOME/.cargo/bin:$PATH"` to `~/.bashrc` so Neovim can find it in future sessions. Ubuntu packages `fd` as `fdfind`; if Telescope cannot find `fd`, install the `fd` package if available for your Ubuntu release or add an `fd` symlink to `fdfind` in `~/.local/bin`.
+
+If Mason reports the debugpy interpreter missing, open Neovim and reinstall its Linux package:
+
+```vim
+:MasonUninstall debugpy
+:MasonInstall debugpy
+```
+
+Restart Neovim after the install completes. If the Tree-sitter warning remains, check `tree-sitter --version`, `gcc --version`, `curl --version`, and `tar --version`; the parser installer needs Tree-sitter CLI 0.26.1 or newer plus those tools.
+
+If the JavaScript debugger still reports Node.js missing, install Node.js and verify that Ubuntu can find it:
+
+```sh
+sudo apt install nodejs npm
+node --version || nodejs --version
+```
+
+Restart Neovim after installation. The config checks both `node` and `nodejs` on `PATH`.
 
 When running under WSL, the config uses Windows clipboard interop (`clip.exe` and `powershell.exe`) automatically when both commands are on `PATH`. This works for terminal Neovim without a Linux desktop clipboard. Windows interop must be enabled in WSL; otherwise install/use a Linux clipboard provider such as `xclip` when your terminal supports it. Keep active projects in the Linux filesystem (for example, `~/src`) for better filesystem performance; `/mnt/c` is available when you need to edit Windows files.
 

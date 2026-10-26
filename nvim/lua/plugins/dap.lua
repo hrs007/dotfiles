@@ -275,6 +275,10 @@ return {
 
             local js_debug = mason .. "/packages/js-debug-adapter/js-debug/src/dapDebugServer.js"
             local node = vim.fn.exepath("node")
+            -- Some Linux distributions expose Node.js as `nodejs` instead.
+            if node == "" then
+                node = vim.fn.exepath("nodejs")
+            end
             if node ~= "" then
                 for _, adapter in ipairs({ "pwa-node", "pwa-chrome", "pwa-msedge" }) do
                     dap.adapters[adapter] = {
