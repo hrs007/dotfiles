@@ -108,6 +108,25 @@ vim.api.nvim_create_autocmd({ "VimEnter", "WinEnter" }, {
 })
 
 -- Files and windows
+-- In WSL, route Neovim's system clipboard through Windows interop when the
+-- Windows clipboard tools are available. This avoids requiring an X server
+-- clipboard utility for terminal Neovim sessions.
+local is_wsl = vim.fn.has("linux") == 1
+    and ((vim.env.WSL_DISTRO_NAME or "") ~= "" or (vim.env.WSL_INTEROP or "") ~= "")
+if is_wsl and vim.fn.executable("clip.exe") == 1 and vim.fn.executable("powershell.exe") == 1 then
+    vim.g.clipboard = {
+        name = "WSL Windows Clipboard",
+        copy = {
+            ["+"] = { "clip.exe" },
+            ["*"] = { "clip.exe" },
+        },
+        paste = {
+            ["+"] = { "powershell.exe", "-NoProfile", "-Command", "Get-Clipboard -Raw" },
+            ["*"] = { "powershell.exe", "-NoProfile", "-Command", "Get-Clipboard -Raw" },
+        },
+        cache_enabled = 0,
+    }
+end
 opt.clipboard = "unnamedplus"
 opt.hidden = true
 -- Prompt before abandoning any modified buffer, including staged Oil edits.

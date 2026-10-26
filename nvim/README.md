@@ -1,6 +1,6 @@
 # Neovim dotfiles
 
-Personal Neovim configuration for terminal Neovim and [Neovide](https://neovide.dev/), with setup helpers for macOS and Windows. The configuration uses Lua, [lazy.nvim](https://github.com/folke/lazy.nvim) for plugins, and Mason for language servers, formatters, and debuggers.
+Personal Neovim configuration for terminal Neovim and [Neovide](https://neovide.dev/), with setup helpers for macOS, Windows, and WSL Ubuntu. The configuration uses Lua, [lazy.nvim](https://github.com/folke/lazy.nvim) for plugins, and Mason for language servers, formatters, and debuggers.
 
 ## What's included
 
@@ -9,6 +9,7 @@ Personal Neovim configuration for terminal Neovim and [Neovide](https://neovide.
 - Automatic bootstrap of `lazy.nvim` on first launch
 - Automatic installation of configured language servers, formatters, and debuggers through Mason
 - A macOS Neovide setup script and a Windows **Open with** registration script
+- WSL clipboard integration through Windows `clip.exe` and `powershell.exe`
 
 ## macOS setup
 
@@ -75,6 +76,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\Register-NeovideOpenW
 
 The script configures Neovide's Neovim executable and opens Windows Default Apps settings. Choose Neovide for the extensions you want; Windows may require you to set defaults in Settings. To remove the registration, run the script with `-Unregister`.
 
+## WSL Ubuntu setup
+
+Run these commands in Ubuntu. Install Neovim and the common native tools inside WSL so plugins, language servers, and project commands use Linux executables:
+
+```sh
+sudo apt update
+sudo apt install neovim git curl build-essential ripgrep fd-find unzip xclip
+git clone https://github.com/hrs007/dotfiles.git ~/dotfiles
+mkdir -p ~/.config
+ln -s ~/dotfiles/nvim ~/.config/nvim
+nvim
+```
+
+If `~/.config/nvim` already exists, move it aside before creating the link. Run `:Lazy sync` after the first launch. Ubuntu packages `fd` as `fdfind`; if Telescope cannot find `fd`, install the `fd` package if available for your Ubuntu release or add an `fd` symlink to `fdfind` in `~/.local/bin`.
+
+When running under WSL, the config uses Windows clipboard interop (`clip.exe` and `powershell.exe`) automatically when both commands are on `PATH`. This works for terminal Neovim without a Linux desktop clipboard. Windows interop must be enabled in WSL; otherwise install/use a Linux clipboard provider such as `xclip` when your terminal supports it. Keep active projects in the Linux filesystem (for example, `~/src`) for better filesystem performance; `/mnt/c` is available when you need to edit Windows files.
+
+Neovide is optional; the instructions above set up terminal Neovim. GUI Neovide setup is separate from the WSL configuration.
+
 ## Language tools and optional dependencies
 
 Mason installs the language support configured in this repository, including servers for Python, C/C++, JavaScript/TypeScript, HTML/CSS, Tailwind, JSON, YAML, Lua, XML, and XAML. It also installs configured formatters and debug adapters. You do not need to install each server separately.
@@ -99,6 +119,8 @@ brew install python node dotnet lazygit
 ```
 
 On Windows, install the corresponding tools from their official installers or package manager. These dependencies are optional unless you use the associated language or feature.
+
+On Ubuntu/WSL, install the tools you use with `apt` (for example `sudo apt install python3 nodejs npm dotnet-sdk-8.0 lazygit`). Package versions vary by Ubuntu release; use the relevant upstream installation instructions if a package is unavailable or too old.
 
 On Windows, install Tree-sitter CLI 0.26.1 or newer and make sure a C compiler, `curl`, and `tar` are available on `PATH` for automatic parser installation. Restart Neovim after installing them.
 

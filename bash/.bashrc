@@ -1,0 +1,1 @@
+/home/herel/.bashrc
