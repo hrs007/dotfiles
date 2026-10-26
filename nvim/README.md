@@ -91,7 +91,7 @@ cargo install tree-sitter-cli --locked
 nvim
 ```
 
-If `~/.config/nvim` already exists, move it aside before creating the link. Run `:Lazy sync` after the first launch. `nodejs` provides the Node executable for the JavaScript debugger. `cargo install` installs Tree-sitter CLI; add `export PATH="$HOME/.cargo/bin:$PATH"` to `~/.bashrc` so Neovim can find it in future sessions. Ubuntu packages `fd` as `fdfind`; if Telescope cannot find `fd`, install the `fd` package if available for your Ubuntu release or add an `fd` symlink to `fdfind` in `~/.local/bin`.
+If `~/.config/nvim` already exists, move it aside before creating the link. Run `:Lazy sync` after the first launch. `nodejs` provides the Node executable for the JavaScript debugger. `cargo install` installs Tree-sitter CLI; the repository's Bash config adds `~/.cargo/bin` to `PATH` for future sessions. Ubuntu packages `fd` as `fdfind`; if Telescope cannot find `fd`, install the `fd` package if available for your Ubuntu release or add an `fd` symlink to `fdfind` in `~/.local/bin`.
 
 If Mason reports the debugpy interpreter missing, open Neovim and reinstall its Linux package:
 

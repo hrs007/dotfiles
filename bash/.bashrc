@@ -7,7 +7,7 @@ case $- in
 esac
 
 # Add common user-local command locations without duplicating PATH entries.
-for user_bin in "$HOME/.local/bin" "$HOME/bin"; do
+for user_bin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/bin"; do
     case ":$PATH:" in
         *":$user_bin:"*) ;;
         *) PATH="$user_bin:$PATH" ;;
