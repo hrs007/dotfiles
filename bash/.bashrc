@@ -1,1 +1,1 @@
-/home/herel/.bashrc
+../../.bashrc
